@@ -41,7 +41,7 @@ def socketSend(sock, data):
     data += 'EOD'
 
     try:
-        sock.send(data)
+        sock.sendall(data)
     except socket.error as err:
         print "failed to send data: ", err
 
