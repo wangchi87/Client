@@ -37,7 +37,7 @@ def socketConnection(sock, host, port):
 
 def socketSend(sock, data):
 
-    # we add EOD as the segmentation of data stream
+    # we add EOD(end of data) as the segmentation of data stream
     data += 'EOD'
 
     try:
@@ -49,6 +49,7 @@ def socketRecv(sock, recvBuffSize):
 
     data = ''
     while 1:
+        print 'client sock recv'
         try:
             buf = sock.recv(recvBuffSize)
         except socket.error as err:
