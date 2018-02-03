@@ -12,19 +12,21 @@ class Client:
     host = None
 
     RECV_BUFFER = 4096
-
     messageList = []
 
-    threadIsAlive = False
+    isSocketAlive = False
+
+    rList = None
+    wList = None
 
     def __init__(self):
         self.host = socket.gethostname()
         self.clientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-
     def connectToServer(self):
-        self.__connect()
+        return socketConnection(self.clientSock, self.host, self.port)
 
+    # not used here
     def __connect(self):
         try:
             self.clientSock.connect((self.host, self.port))
@@ -33,36 +35,41 @@ class Client:
 
 
     def closeClient(self):
-        if self.threadIsAlive:
+        if self.isSocketAlive:
             print 'close socket'
             socketSend(self.clientSock, "CLIENT_SHUTDOWN")
             self.clientSock.close()
-            self.threadIsAlive = False
+            self.isSocketAlive = False
         else:
             print 'socket has been closed already'
 
     def mainLoop(self, tkMsgList):
 
-        self.threadIsAlive = True
+        self.isSocketAlive = True
 
-        rList = [self.clientSock, sys.stdin]
+        self.rList = [self.clientSock, sys.stdin]
+        self.wList = []
+
+        quitProgram = False
 
         try:
 
-            while True:
+            while self.isSocketAlive and (not quitProgram):
 
-                readList, writeList, errorList = select.select(rList, [], rList)
-
+                readList, writeList, errorList = select.select(self.rList, self.wList, self.rList)
                 quitProgram = False
 
                 for element in readList:
                     if element == self.clientSock:
-                        data = socketRecv(self.clientSock, self.RECV_BUFFER)
-                        if not data:
-                            print "this connection is not available"
-                            quitProgram = True
+                        try:
+                            data = socketRecv(element, self.RECV_BUFFER)
+                        except socket.error as err:
+                            print "failed to receive data", err
+                            element.close()
+                            self.isSocketAlive = False
+                            self.rList.remove(element)
+                            return
                         else:
-
                             if data == 'server msg: SERVER_SHUTDOWN':
                                 print "server is shut down"
                                 quitProgram = True
