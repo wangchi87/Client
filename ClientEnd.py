@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import socket, sys, select, traceback
+import socket, sys, select, traceback, time, threading
 from Tkinter import *
 
 from SocketWrapper import *
@@ -19,6 +19,8 @@ class Client:
     rList = None
     wList = None
 
+    hbThread = None
+
     def __init__(self):
         self.host = socket.gethostname()
         self.clientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -33,6 +35,12 @@ class Client:
         except:
             print "unable to connect server"
 
+        self.isSocketAlive = True
+
+        # self.hbThread = threading.Thread(target=self.sendHeartBeatPackage)
+        # self.hbThread.setDaemon(True)
+        # self.hbThread.start()
+
 
     def closeClient(self):
         if self.isSocketAlive:
@@ -43,11 +51,14 @@ class Client:
         else:
             print 'socket has been closed already'
 
+    def sendHeartBeatPackage(self):
+        while self.isSocketAlive:
+            socketSend(self.clientSock, "****pyHB****")
+            time.sleep(1)
+
     def mainLoop(self, tkMsgList):
 
-        self.isSocketAlive = True
-
-        self.rList = [self.clientSock, sys.stdin]
+        self.rList = [self.clientSock]
         self.wList = []
 
         quitProgram = False
