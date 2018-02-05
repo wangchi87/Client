@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 import socket, sys, select, traceback, time, threading
-from Tkinter import *
 
 from SocketWrapper import *
 
@@ -12,14 +11,16 @@ class Client:
     host = None
 
     RECV_BUFFER = 4096
-    messageList = []
+    # messageList = []
 
     __isSocketAlive = False
 
-    rList = None
-    wList = None
+    # rList = None
+    # wList = None
 
     hbThread = None
+    sendThread = None
+    recvThread = None
 
     msgToSend = []
     msgReceived = []
@@ -35,11 +36,18 @@ class Client:
         self.hbThread.setDaemon(True)
         self.hbThread.start()
 
+        self.recvThread = threading.Thread(target=self.recvMsg)
+        self.recvThread.setDaemon(True)
+        self.recvThread.start()
+
+        self.sendThread = threading.Thread(target=self.sendMsg)
+        self.sendThread.setDaemon(True)
+        self.sendThread.start()
+
         return self.__isSocketAlive
 
     def isSocketAlive(self):
         return self.__isSocketAlive
-
 
     def addMsgToQueue(self, msg):
         self.msgToSend.append(msg)
@@ -63,8 +71,7 @@ class Client:
                 recvedData = socketRecv(self.clientSock, self.RECV_BUFFER)
             except socket.error as err:
                 print "failed to receive data", err
-                self.clientSock.close()
-                self.__isSocketAlive = False
+                self.closeClient()
                 return
             else:
                 if (not recvedData):
@@ -75,8 +82,6 @@ class Client:
                     break
                 print recvedData
                 self.msgReceived.append(recvedData)
-                # self.msgList.insert(END, self.usrName + ': ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + '\n ','userColor')
-                #tkMsgList.insert(END, recvedData)
             time.sleep(0.1)
 
     def closeClient(self):
@@ -90,8 +95,14 @@ class Client:
             print 'socket has been closed already'
 
     def sendHeartBeatPackage(self):
+        '''
+        There are two benefits of sending heart beat package:
+        1. the heart beat package will allow the server to be aware of whether the client is ALIVE or not
+        2. the heart beat package also serve as PASSWORD to maintain a connection with the server,
+            so that the connection which is NOT raised from our client program will be rejected(closed by the server)
+        '''
         while self.__isSocketAlive:
-            socketSend(self.clientSock, "****pyHB****")
+            socketSend(self.clientSock, "-^-^-pyHB-^-^-")
             time.sleep(0.5)
 
     # def mainLoop(self, tkMsgList):

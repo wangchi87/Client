@@ -6,6 +6,7 @@ from ClientEnd import *
 import time
 import threading
 import signal
+import json
 
 # login window
 class LoginWindow(Toplevel):
@@ -26,6 +27,7 @@ class LoginWindow(Toplevel):
         self.configureUI()
 
         self.client = client
+        self.protocol('WM_DELETE_WINDOW', self.closeDialog)
 
     def configureUI(self):
         self.logFrm = Frame(self, width=380, height=250)
@@ -36,7 +38,7 @@ class LoginWindow(Toplevel):
         self.logPWDlabel = Label(self.logFrm, text=u'密码')
 
         self.logUsrName = Entry(self.logFrm)
-        self.logUsrPWD = Entry(self.logFrm)
+        self.logUsrPWD = Entry(self.logFrm, show = '*')
 
         self.logBtnEnter = Button(self.logFrm, text=u'登录', command = self.enterBtn)
         self.logBtnRegist = Button(self.logFrm, text=u'注册', command = self.registBtn)
@@ -53,6 +55,18 @@ class LoginWindow(Toplevel):
     def tryLogin(self):
         pass
 
+        usrName = self.logUsrName.get()
+        password = self.logUsrPWD.get()
+
+        logStr = {}
+
+        logStr['TryLogin'] = {usrName: password}
+
+        jstr = json.dumps(logStr)
+
+
+        self.client.addMsgToQueue(jstr)
+
         return True
 
     def enterBtn(self):
@@ -67,6 +81,10 @@ class LoginWindow(Toplevel):
     def registBtn(self):
         pass
 
+    def closeDialog(self):
+        self.client.closeClient()
+        self.mainFrm.destroy()
+
 
 class Dialog(Tk):
 
@@ -76,8 +94,6 @@ class Dialog(Tk):
     client = None
 
     msgThread = None
-    sendThread = None
-    recvThread = None
 
 
     def __init__(self):
@@ -99,14 +115,6 @@ class Dialog(Tk):
             # self.msgThread = threading.Thread(target=self.socketLoop)
             # self.msgThread.setDaemon(True)
             # self.msgThread.start()
-
-            self.recvThread = threading.Thread(target=self.recvMsg)
-            self.recvThread.setDaemon(True)
-            self.recvThread.start()
-
-            self.sendThread = threading.Thread(target=self.sendMsg)
-            self.sendThread.setDaemon(True)
-            self.sendThread.start()
 
             guiThread = threading.Thread(target=self.displayMsg)
             guiThread.setDaemon(True)
@@ -185,19 +193,14 @@ class Dialog(Tk):
         self.client.closeClient()
         self.destroy()
 
-    def recvMsg(self):
-        print 'receive msg'
-        self.client.recvMsg()
 
-    def sendMsg(self):
-        print 'send msg'
-        self.client.sendMsg()
 
     def displayMsg(self):
         while self.client.isSocketAlive():
             msg = self.client.popMsgFromQueue()
             if msg != None:
                 self.msgList.insert(END, msg)
+        print 'end of display msg thread'
 
 
 def myHandler(signum, frame):
