@@ -39,7 +39,7 @@ def socketConnection(sock, host, port):
         return True
 
 def socketSend(sock, data):
-    print 'socket send data', data
+    #print 'socket send data', data
     # we add EOD(end of data) as the segmentation of data stream
     data += 'EOD'
 
@@ -63,8 +63,7 @@ def socketRecv(sock, recvBuffSize):
 
         # server never send ''!
         # this will happen only when the client is terminated unexpectedly
-        if data == '':
-            print 'receive empty string!'
+        if not data:
             return data
 
     return data[:-3]

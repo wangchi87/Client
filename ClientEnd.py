@@ -22,20 +22,28 @@ class Client:
     hbThread = None
 
     def __init__(self):
-        self.host = socket.gethostname()
+        self.host = '127.0.0.1'#socket.gethostname()
         self.clientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def connectToServer(self):
-        return socketConnection(self.clientSock, self.host, self.port)
+        self.isSocketAlive = socketConnection(self.clientSock, self.host, self.port)
+
+        self.hbThread = threading.Thread(target=self.sendHeartBeatPackage)
+        self.hbThread.setDaemon(True)
+        self.hbThread.start()
+
+        return self.isSocketAlive
+
+
 
     # not used here
-    def __connect(self):
-        try:
-            self.clientSock.connect((self.host, self.port))
-        except:
-            print "unable to connect server"
-
-        self.isSocketAlive = True
+    # def __connect(self):
+    #     try:
+    #         self.clientSock.connect((self.host, self.port))
+    #     except:
+    #         print "unable to connect server"
+    #     else:
+    #         self.isSocketAlive = True
 
         # self.hbThread = threading.Thread(target=self.sendHeartBeatPackage)
         # self.hbThread.setDaemon(True)
@@ -54,7 +62,7 @@ class Client:
     def sendHeartBeatPackage(self):
         while self.isSocketAlive:
             socketSend(self.clientSock, "****pyHB****")
-            time.sleep(1)
+            time.sleep(0.5)
 
     def mainLoop(self, tkMsgList):
 
@@ -73,7 +81,7 @@ class Client:
                 for element in readList:
                     if element == self.clientSock:
                         try:
-                            data = socketRecv(element, self.RECV_BUFFER)
+                            recvedData = socketRecv(element, self.RECV_BUFFER)
                         except socket.error as err:
                             print "failed to receive data", err
                             element.close()
@@ -81,20 +89,20 @@ class Client:
                             self.rList.remove(element)
                             return
                         else:
-                            if data == 'server msg: SERVER_SHUTDOWN':
+                            if recvedData == 'server msg: SERVER_SHUTDOWN' or (not recvedData):
                                 print "server is shut down"
                                 quitProgram = True
                                 break
-                            print data
+                            print recvedData
                             #self.msgList.insert(END, self.usrName + ': ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + '\n ','userColor')
-                            tkMsgList.insert(END, data)
+                            tkMsgList.insert(END, recvedData)
                     else:
-                        data = sys.stdin.readline()
+                        recvedData = sys.stdin.readline()
 
                         # 当 直接从terminal关闭程序的时候，貌似程序并不会抛出异常
                         # 反之，程序会读取一个空的字符串；此处，我们认为''代表此种情况
                         # 但是是否有更合理的解决方案？
-                        if data == 'esc\n' or data == '':
+                        if recvedData == 'esc\n' or recvedData == '':
                             quitProgram = True
                             break
                         else:
