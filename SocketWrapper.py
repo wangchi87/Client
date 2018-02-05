@@ -50,7 +50,7 @@ def socketSend(sock, data):
         print "failed to send data: ", err
 
 def socketRecv(sock, recvBuffSize):
-    print 'socket recv data'
+    # print 'socket recv data'
     data = ''
     while 1:
 

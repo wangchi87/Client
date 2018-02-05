@@ -73,11 +73,11 @@ class Dialog(Tk):
     usrName = 'usrName'
     loginWin = None
     clientSock = None
-    isSocketAlive = False
     client = None
 
     msgThread = None
-    sockThread = None
+    sendThread = None
+    recvThread = None
 
 
     def __init__(self):
@@ -91,23 +91,36 @@ class Dialog(Tk):
         self.withdraw()
 
         # 发起链接
-        self.isSocketAlive = False
         self.__connect()
-        self.clientSock = self.client.clientSock
 
-        if self.isSocketAlive:
+        if self.client.isSocketAlive():
             self.loginWin = LoginWindow(self, self.client)
 
-            self.msgThread = threading.Thread(target=self.socketLoop)
-            self.msgThread.setDaemon(True)
-            self.msgThread.start()
+            # self.msgThread = threading.Thread(target=self.socketLoop)
+            # self.msgThread.setDaemon(True)
+            # self.msgThread.start()
+
+            self.recvThread = threading.Thread(target=self.recvMsg)
+            self.recvThread.setDaemon(True)
+            self.recvThread.start()
+
+            self.sendThread = threading.Thread(target=self.sendMsg)
+            self.sendThread.setDaemon(True)
+            self.sendThread.start()
+
+            guiThread = threading.Thread(target=self.displayMsg)
+            guiThread.setDaemon(True)
+            guiThread.start()
+
         else:
             print 'failed to connect server'
             sys.exit(1)
 
+        self.mainloop()
+
     def __connect(self):
         self.client = Client()
-        self.isSocketAlive = self.client.connectToServer()
+        self.client.connectToServer()
 
 
     def setUsrName(self, myStr):
@@ -157,29 +170,34 @@ class Dialog(Tk):
         usrMsg = self.msg.get('0.0', END)
         self.msgList.insert(END, usrMsg)
         self.msg.delete('0.0', END)
-        socketSend(self.clientSock, usrMsg)
+        self.client.addMsgToQueue(usrMsg)
+        # socketSend(self.clientSock, usrMsg)
 
     def BtnCommand2(self, event):
         self.msgList.insert(END, ' a message :')
 
-    def closeSocket(self):
-        self.client.closeClient()
 
-    def socketLoop(self):
-        print 'socket loop with threading'
-        self.client.mainLoop(self.msgList)
-
-    def msgListner(self):
-        print 'message loop with threading'
-        while 1:
-            if len(self.client.messageList) > 0:
-                msg = self.client.messageList.pop()
-                print msg
+    # def socketLoop(self):
+    #     print 'socket loop with threading'
+    #     self.client.mainLoop(self.msgList)
 
     def closeDialog(self):
-        self.closeSocket()
-        # kill thread
+        self.client.closeClient()
         self.destroy()
+
+    def recvMsg(self):
+        print 'receive msg'
+        self.client.recvMsg()
+
+    def sendMsg(self):
+        print 'send msg'
+        self.client.sendMsg()
+
+    def displayMsg(self):
+        while self.client.isSocketAlive():
+            msg = self.client.popMsgFromQueue()
+            if msg != None:
+                self.msgList.insert(END, msg)
 
 
 def myHandler(signum, frame):
@@ -194,10 +212,10 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, myHandler)
 
     d = Dialog()
-    try:
-        d.mainloop()
-    except Exception as e:
-        print e, 'xxx'
+    # try:
+    #     d.mainloop()
+    # except Exception as e:
+    #     print e, 'xxx'
 
 
 
