@@ -37,8 +37,8 @@ class LoginWindow(Toplevel):
         self.logUNlabel = Label(self.logFrm, text=u'用户名')
         self.logPWDlabel = Label(self.logFrm, text=u'密码')
 
-        self.logUsrName = Entry(self.logFrm)
-        self.logUsrPWD = Entry(self.logFrm, show = '*')
+        self.logUsrName = Entry(self.logFrm, text=u'netease1')
+        self.logUsrPWD = Entry(self.logFrm, text=u'1234',show = '*')
 
         self.logBtnEnter = Button(self.logFrm, text=u'登录', command = self.enterBtn)
         self.logBtnRegist = Button(self.logFrm, text=u'注册', command = self.registBtn)
@@ -60,10 +60,9 @@ class LoginWindow(Toplevel):
 
         logStr = {}
 
-        logStr['TryLogin'] = {usrName: password}
+        logStr['LoginRequest'] = {usrName: password}
 
         jstr = json.dumps(logStr)
-
 
         self.client.addMsgToQueue(jstr)
 
@@ -79,7 +78,16 @@ class LoginWindow(Toplevel):
             self.mainFrm.destroy()
 
     def registBtn(self):
-        pass
+        usrName = self.logUsrName.get()
+        password = self.logUsrPWD.get()
+
+        registStr = {}
+
+        registStr['RegistRequest'] = {usrName: password}
+
+        jstr = json.dumps(registStr)
+
+        self.client.addMsgToQueue(jstr)
 
     def closeDialog(self):
         self.client.closeClient()
@@ -178,22 +186,20 @@ class Dialog(Tk):
         usrMsg = self.msg.get('0.0', END)
         self.msgList.insert(END, usrMsg)
         self.msg.delete('0.0', END)
-        self.client.addMsgToQueue(usrMsg)
+        msg = {}
+        msg['ChatConversation'] = usrMsg
+        data = json.dumps(msg)
+
+        self.client.addMsgToQueue(data)
         # socketSend(self.clientSock, usrMsg)
 
     def BtnCommand2(self, event):
         self.msgList.insert(END, ' a message :')
 
 
-    # def socketLoop(self):
-    #     print 'socket loop with threading'
-    #     self.client.mainLoop(self.msgList)
-
     def closeDialog(self):
         self.client.closeClient()
         self.destroy()
-
-
 
     def displayMsg(self):
         while self.client.isSocketAlive():

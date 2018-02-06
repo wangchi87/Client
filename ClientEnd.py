@@ -32,9 +32,9 @@ class Client:
     def connectToServer(self):
         self.__isSocketAlive = socketConnection(self.clientSock, self.host, self.port)
 
-        self.hbThread = threading.Thread(target=self.sendHeartBeatPackage)
-        self.hbThread.setDaemon(True)
-        self.hbThread.start()
+        # self.hbThread = threading.Thread(target=self.sendHeartBeatPackage)
+        # self.hbThread.setDaemon(True)
+        # self.hbThread.start()
 
         self.recvThread = threading.Thread(target=self.recvMsg)
         self.recvThread.setDaemon(True)
