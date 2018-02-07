@@ -3,7 +3,7 @@ import socket
 
 def socketCreation():
     try:
-        sock = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     except socket.error as err:
         print "failed to create socket: ", err
     else:
@@ -48,6 +48,9 @@ def socketSend(sock, data):
         sock.sendall(data)
     except socket.error as err:
         print "failed to send data: ", err
+        return False
+    else:
+        return True
 
 def socketRecv(sock, recvBuffSize):
     # print 'socket recv data'
@@ -67,17 +70,3 @@ def socketRecv(sock, recvBuffSize):
             return data
 
     return data[:-3]
-
-    # data = ''
-    # while 1:
-    #     print 'client sock recv'
-    #     try:
-    #         buf = sock.recv(recvBuffSize)
-    #     except socket.error as err:
-    #         print "failed to receive data", err
-    #     else:
-    #         data = data + buf
-    #         if data[-3:] == 'EOD':
-    #             break
-    #
-    # return data[:-3]

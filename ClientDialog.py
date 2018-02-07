@@ -32,7 +32,7 @@ class LoginWindow(Toplevel):
         self.protocol('WM_DELETE_WINDOW', self.closeDialog)
 
     def configureUI(self):
-        self.logFrm = Frame(self, width=380, height=250)
+        self.logFrm = Frame(self, width=380, height=400)
 
         self.logCaption = Label(self.logFrm, text=u'登录窗口')
 
@@ -55,6 +55,8 @@ class LoginWindow(Toplevel):
         self.logInfo.grid(row=3, column=0, columnspan=2, pady='1m')
         self.logBtnEnter.grid(row=4, column=0, columnspan=2, pady='2m')
         self.logBtnRegist.grid(row=5, column=0, columnspan=2, pady='1m')
+
+        # self.logFrm.grid_propagate(0)
 
     def tryLogin(self):
         self.usrName = self.logUsrName.get()
@@ -125,10 +127,13 @@ class Dialog(Tk):
         if self.client.isSocketAlive():
             self.loginWin = LoginWindow(self, self.client)
 
-            displayMsgThread = threading.Thread(target=self.displayMsg)
+            displayMsgThread = threading.Thread(target=self.__displayMsg)
             displayMsgThread.setDaemon(True)
             displayMsgThread.start()
 
+            usrOnlineMsgThread = threading.Thread(target=self.__setUsrOnlineTimeLoop)
+            usrOnlineMsgThread.setDaemon(True)
+            usrOnlineMsgThread.start()
         else:
             print 'failed to connect server'
             sys.exit(1)
@@ -151,7 +156,7 @@ class Dialog(Tk):
         self.frmTop = Frame(self,width=380, height=250)
         self.frmMid = Frame(self,width=380, height=250)
         self.frmBtm = Frame(self,width=380, height=30)
-        self.frmRight = Frame(self,bg='red',width=80, height=580)
+        self.frmRight = Frame(self,bg='grey',width=180, height=580)
 
         self.label1 = Label(self, justify=LEFT, text=u"""消息列表""")
         self.label2 = Label(self, justify=LEFT, text=self.usrName)
@@ -161,6 +166,9 @@ class Dialog(Tk):
 
         self.sendBtn = Button(self.frmBtm, text = '发送消息', command=self.BtnCommand)
         self.sendBtn.bind('<Button-2>', self.BtnCommand2)
+
+        self.labelLastOnlineTime = Label(self.frmRight,  text='上次登录时间\n')
+        self.labelTotalOnlineTime = Label(self.frmRight, text='总共在线时间\n')
 
         self.label1.grid(row = 0, column = 0,sticky=W)
         self.frmTop.grid(row = 1, column = 0)
@@ -175,8 +183,9 @@ class Dialog(Tk):
         self.msg.grid()
         self.sendBtn.grid()
 
-        self.msgList.grid_propagate(0)
-        self.msg.grid_propagate(0)
+        self.labelLastOnlineTime.grid(row = 0, column = 0, pady='10m', sticky=E)
+        self.labelTotalOnlineTime.grid(row = 1, column = 0, pady='5m', sticky=E)
+
         self.frmTop.grid_propagate(0)
         self.frmMid.grid_propagate(0)
         self.frmBtm.grid_propagate(0)
@@ -202,13 +211,26 @@ class Dialog(Tk):
         self.client.closeClient()
         self.destroy()
 
-    def displayMsg(self):
+    def __displayMsg(self):
         while self.client.isSocketAlive():
+            time.sleep(0.1)
             msg = self.client.popChatMsgFromQueue()
             if msg != None:
                 self.msgList.insert(END, msg)
-        print 'end of display msg thread'
+        print 'end of displaying msg thread'
 
+    def __setUsrOnlineTimeLoop(self):
+        while self.client.isSocketAlive():
+            time.sleep(5)
+            self.setUsrTime()
+        print 'end of updating usr online time'
+
+    def setUsrTime(self):
+        msg = self.client.popUsrOnlineTimeMsgFromQueue()
+        if msg != None:
+            msg = msg.split(';')
+            self.labelLastOnlineTime['text'] = '上次登录时间\n'.decode('utf-8') + msg[0]
+            self.labelTotalOnlineTime['text'] = '总共在线时间\n'.decode('utf-8') + msg[1]
 
 def myHandler(signum, frame):
     print('I received: ', signum)

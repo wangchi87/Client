@@ -25,6 +25,7 @@ class Client:
     msgToSend = []
     __chatMsgRecved = []
     __sysMsgRecved = []
+    __usrOnlineTimeMsg = []
 
     def __init__(self):
         self.host = '127.0.0.1'#socket.gethostname()
@@ -33,9 +34,9 @@ class Client:
     def connectToServer(self):
         self.__isSocketAlive = socketConnection(self.clientSock, self.host, self.port)
 
-        # self.hbThread = threading.Thread(target=self.sendHeartBeatPackage)
-        # self.hbThread.setDaemon(True)
-        # self.hbThread.start()
+        self.hbThread = threading.Thread(target=self.sendHeartBeatPackage)
+        self.hbThread.setDaemon(True)
+        self.hbThread.start()
 
         self.recvThread = threading.Thread(target=self.recvMsg)
         self.recvThread.setDaemon(True)
@@ -65,11 +66,17 @@ class Client:
         else:
             return None
 
+    def popUsrOnlineTimeMsgFromQueue(self):
+        if len(self.__usrOnlineTimeMsg) > 0:
+            return self.__usrOnlineTimeMsg.pop()
+        else:
+            return None
+
     def sendMsg(self):
         while self.__isSocketAlive:
             if len(self.msgToSend) > 0:
                 msg = self.msgToSend.pop()
-                socketSend(self.clientSock, msg)
+                self.__safeSocketSend(msg)
             time.sleep(0.1)
 
     def recvMsg(self):
@@ -87,33 +94,31 @@ class Client:
                 if recvedData == 'server msg: SERVER_SHUTDOWN':
                     print "server is shut down"
                     break
-                print recvedData
+                # print recvedData
                 self.__parseRecvedData(recvedData)
-                #self.__chatMsgRecved.append(recvedData)
             time.sleep(0.1)
 
     def __parseRecvedData(self, msg):
-
         try:
             data = json.loads(msg)
         except ValueError as e:
             print 'exception in loading json data', e
-
+            print msg
         else:
-            print data
-
+            # print data
             for k, v in data.items():
+                v = str(v).decode('utf-8')
                 if k == 'SysLoginAck' or k == 'SysRegisterAck':
                     self.__sysMsgRecved.append(v)
                 elif k == 'Chat':
                     self.__chatMsgRecved.append(v)
-
-
+                elif k == 'SysUsrOnlineDurationMsg':
+                    self.__usrOnlineTimeMsg.append(v)
 
     def closeClient(self):
         if self.__isSocketAlive:
             print 'close socket'
-            socketSend(self.clientSock, "CLIENT_SHUTDOWN")
+            self.__safeSocketSend("CLIENT_SHUTDOWN")
             # self.rList.remove(self.clientSock)
             self.clientSock.close()
             self.__isSocketAlive = False
@@ -128,8 +133,12 @@ class Client:
             so that the connection which is NOT raised from our client program will be rejected(closed by the server)
         '''
         while self.__isSocketAlive:
-            socketSend(self.clientSock, "-^-^-pyHB-^-^-")
+            self.__safeSocketSend("-^-^-pyHB-^-^-")
             time.sleep(0.5)
+
+    def __safeSocketSend(self, msg):
+        if not socketSend(self.clientSock, msg):
+            self.__isSocketAlive = False
 
     # def mainLoop(self, tkMsgList):
     #
