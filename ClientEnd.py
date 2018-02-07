@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-import socket, sys, select, traceback, time, threading
+import socket, sys, select, traceback, time, threading, json
 
 from SocketWrapper import *
 
@@ -23,7 +23,8 @@ class Client:
     recvThread = None
 
     msgToSend = []
-    msgReceived = []
+    __chatMsgRecved = []
+    __sysMsgRecved = []
 
     def __init__(self):
         self.host = '127.0.0.1'#socket.gethostname()
@@ -52,9 +53,15 @@ class Client:
     def addMsgToQueue(self, msg):
         self.msgToSend.append(msg)
 
-    def popMsgFromQueue(self):
-        if len(self.msgReceived) > 0:
-            return self.msgReceived.pop()
+    def popChatMsgFromQueue(self):
+        if len(self.__chatMsgRecved) > 0:
+            return self.__chatMsgRecved.pop()
+        else:
+            return None
+
+    def popSysMsgFromQueue(self):
+        if len(self.__sysMsgRecved) > 0:
+            return self.__sysMsgRecved.pop()
         else:
             return None
 
@@ -81,8 +88,27 @@ class Client:
                     print "server is shut down"
                     break
                 print recvedData
-                self.msgReceived.append(recvedData)
+                self.__parseRecvedData(recvedData)
+                #self.__chatMsgRecved.append(recvedData)
             time.sleep(0.1)
+
+    def __parseRecvedData(self, msg):
+
+        try:
+            data = json.loads(msg)
+        except ValueError as e:
+            print 'exception in loading json data', e
+
+        else:
+            print data
+
+            for k, v in data.items():
+                if k == 'SysLoginAck' or k == 'SysRegisterAck':
+                    self.__sysMsgRecved.append(v)
+                elif k == 'Chat':
+                    self.__chatMsgRecved.append(v)
+
+
 
     def closeClient(self):
         if self.__isSocketAlive:

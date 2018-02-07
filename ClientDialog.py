@@ -2,11 +2,13 @@
 
 from Tkinter import *
 from ClientEnd import *
+from Utilities import *
 
 import time
 import threading
 import signal
-import json
+
+
 
 # login window
 class LoginWindow(Toplevel):
@@ -16,7 +18,7 @@ class LoginWindow(Toplevel):
 
     client = None
     mainFrm = None
-
+    usrName = None
 
     def __init__(self, mainFrm, client):
         Toplevel.__init__(self)
@@ -36,6 +38,7 @@ class LoginWindow(Toplevel):
 
         self.logUNlabel = Label(self.logFrm, text=u'用户名')
         self.logPWDlabel = Label(self.logFrm, text=u'密码')
+        self.logInfo = Label(self.logFrm)
 
         self.logUsrName = Entry(self.logFrm, text=u'netease1')
         self.logUsrPWD = Entry(self.logFrm, text=u'1234',show = '*')
@@ -49,45 +52,50 @@ class LoginWindow(Toplevel):
         self.logUsrName.grid(row=1, column=1)
         self.logPWDlabel.grid(row=2, column=0)
         self.logUsrPWD.grid(row=2, column=1)
-        self.logBtnEnter.grid(row=3, column=0, columnspan=2, pady='5m')
-        self.logBtnRegist.grid(row=4, column=0, columnspan=2, pady='1m')
+        self.logInfo.grid(row=3, column=0, columnspan=2, pady='1m')
+        self.logBtnEnter.grid(row=4, column=0, columnspan=2, pady='2m')
+        self.logBtnRegist.grid(row=5, column=0, columnspan=2, pady='1m')
 
     def tryLogin(self):
-        pass
-
-        usrName = self.logUsrName.get()
+        self.usrName = self.logUsrName.get()
         password = self.logUsrPWD.get()
 
-        logStr = {}
-
-        logStr['LoginRequest'] = {usrName: password}
-
-        jstr = json.dumps(logStr)
-
+        jstr = packageMsg('SysLoginRequest', {self.usrName: password})
         self.client.addMsgToQueue(jstr)
 
-        return True
+        while 1:
+            sysMsg = self.client.popSysMsgFromQueue()
+            if sysMsg != None:
+                if sysMsg =='Successful login':
+                    return True
+                else:
+                    self.logInfo['text'] = sysMsg
+                return False
+
 
     def enterBtn(self):
         if self.tryLogin():
             self.destroy()
             self.mainFrm.deiconify()
-            self.mainFrm.setUsrName('网易用户')
-        else:
-            self.destroy()
-            self.mainFrm.destroy()
+            self.mainFrm.setUsrName(self.usrName)
+
 
     def registBtn(self):
-        usrName = self.logUsrName.get()
+        self.usrName = self.logUsrName.get()
         password = self.logUsrPWD.get()
 
-        registStr = {}
-
-        registStr['RegistRequest'] = {usrName: password}
-
-        jstr = json.dumps(registStr)
-
+        jstr = packageMsg('SysRegisterRequest', {self.usrName: password})
         self.client.addMsgToQueue(jstr)
+
+        while 1:
+            sysMsg = self.client.popSysMsgFromQueue()
+            if sysMsg != None:
+                if sysMsg =='Succesful registration':
+                    self.logInfo['text'] = sysMsg
+                    return True
+                else:
+                    self.logInfo['text'] = sysMsg
+                return False
 
     def closeDialog(self):
         self.client.closeClient()
@@ -109,24 +117,17 @@ class Dialog(Tk):
         self.title(u"聊天窗口")
         self['background'] = 'grey'
         self.configureUI()
-
+        self.withdraw()
         self.protocol('WM_DELETE_WINDOW', self.closeDialog)
 
-        self.withdraw()
-
-        # 发起链接
         self.__connect()
 
         if self.client.isSocketAlive():
             self.loginWin = LoginWindow(self, self.client)
 
-            # self.msgThread = threading.Thread(target=self.socketLoop)
-            # self.msgThread.setDaemon(True)
-            # self.msgThread.start()
-
-            guiThread = threading.Thread(target=self.displayMsg)
-            guiThread.setDaemon(True)
-            guiThread.start()
+            displayMsgThread = threading.Thread(target=self.displayMsg)
+            displayMsgThread.setDaemon(True)
+            displayMsgThread.start()
 
         else:
             print 'failed to connect server'
@@ -187,7 +188,7 @@ class Dialog(Tk):
         self.msgList.insert(END, usrMsg)
         self.msg.delete('0.0', END)
         msg = {}
-        msg['ChatConversation'] = usrMsg
+        msg['Chat'] = usrMsg
         data = json.dumps(msg)
 
         self.client.addMsgToQueue(data)
@@ -203,7 +204,7 @@ class Dialog(Tk):
 
     def displayMsg(self):
         while self.client.isSocketAlive():
-            msg = self.client.popMsgFromQueue()
+            msg = self.client.popChatMsgFromQueue()
             if msg != None:
                 self.msgList.insert(END, msg)
         print 'end of display msg thread'
