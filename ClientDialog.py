@@ -22,15 +22,18 @@ class LoginWindow(Toplevel):
         Toplevel.__init__(self)
         self.mainFrm = mainFrm
         self.title(u'登录窗口')
-        logFrmPos = '%dx%d+%d+%d' % (400, 300, (1500 - 400) / 2, (900 - 300) / 2)
-        self.geometry(logFrmPos)
+
         self.configureUI()
 
         self.__client = client
         self.protocol('WM_DELETE_WINDOW', self.closeDialog)
 
     def configureUI(self):
-        self.logFrm = Frame(self, width=380, height=400)
+        logFrmPos = '%dx%d+%d+%d' % (250, 330, (1500 - 400) / 2, (900 - 300) / 2)
+        self.geometry(logFrmPos)
+
+        self.logFrm = Frame(self)
+        self.logFrm.place(x=0, y=0, width=250, height=330)
 
         self.logCaption = Label(self.logFrm, text=u'登录窗口')
 
@@ -39,20 +42,19 @@ class LoginWindow(Toplevel):
         self.logInfo = Label(self.logFrm)
 
         self.logUsrName = Entry(self.logFrm, text=u'netease1')
-        self.logUsrPWD = Entry(self.logFrm, text=u'1234',show = '*')
+        self.logUsrPWD = Entry(self.logFrm, text=u'1234', show='*')
 
-        self.logBtnEnter = Button(self.logFrm, text=u'登录', command = self.enterBtn)
-        self.logBtnRegist = Button(self.logFrm, text=u'注册', command = self.registBtn)
+        self.logBtnEnter = Button(self.logFrm, text=u'登录', command=self.enterBtn)
+        self.logBtnRegist = Button(self.logFrm, text=u'注册', command=self.registBtn)
 
-        self.logFrm.pack()
-        self.logCaption.grid(row=0, column=0, columnspan=2, pady='2c')
-        self.logUNlabel.grid(row=1, column=0)
-        self.logUsrName.grid(row=1, column=1)
-        self.logPWDlabel.grid(row=2, column=0)
-        self.logUsrPWD.grid(row=2, column=1)
-        self.logInfo.grid(row=3, column=0, columnspan=2, pady='1m')
-        self.logBtnEnter.grid(row=4, column=0, columnspan=2, pady='2m')
-        self.logBtnRegist.grid(row=5, column=0, columnspan=2, pady='1m')
+        self.logCaption.pack(pady=15)
+        self.logUNlabel.pack(pady=5)
+        self.logUsrName.pack(pady=5)
+        self.logPWDlabel.pack(pady=5)
+        self.logUsrPWD.pack(pady=5)
+        self.logInfo.pack(pady=5)
+        self.logBtnEnter.pack(pady=5)
+        self.logBtnRegist.pack(pady=5)
 
     def tryLogin(self):
 
@@ -69,10 +71,9 @@ class LoginWindow(Toplevel):
         self.__client.appendToMsgSendingQueue(jstr)
 
         # wait for system login msg replied from server
-        count = 0
+        startTime = time.time()
         while 1:
-            count += 1
-            if count > 1000:
+            if time.time() - startTime > 120:
                 self.logInfo['text'] = "Failed to login, please try again"
                 self.logBtnEnter['state'] = 'normal'
                 return False
@@ -118,10 +119,9 @@ class LoginWindow(Toplevel):
         self.__client.appendToMsgSendingQueue(jstr)
 
         # wait for system registration reply msg from server
-        count = 0
+        startTime = time.time()
         while 1:
-            count += 1
-            if count > 1000:
+            if time.time() - startTime > 120:
                 self.logInfo['text'] = "Failed to register, please try again"
                 self.logBtnRegist['state'] = 'normal'
                 return
@@ -135,6 +135,7 @@ class LoginWindow(Toplevel):
                 break
             else:
                 self.__client.appendSysMsg(sysMsg)
+                time.sleep(0.2)
 
         if sysMsg != None:
             if sysMsg.values()[0] == 'Succesful registration':
@@ -339,12 +340,16 @@ class PrivateRoom(Tk):
 
     def __init__(self, mn, fn):
         Tk.__init__(self)
-        self.title(u"私聊")
+
         self['background'] = 'grey'
-        self.configureUI()
-        self.protocol('WM_DELETE_WINDOW', self.closeDialog)
+
+        # self.protocol('WM_DELETE_WINDOW', self.closeDialog)
         self.myUsrName = mn
+
+        self.title(u"与" + fn + u"私聊")
         self.friendUsrName = fn
+
+        self.configureUI()
 
     def closeDialog(self):
         pass
@@ -353,15 +358,13 @@ class PrivateRoom(Tk):
         # main window
         bgColor = '#208090'
         self['bg'] = bgColor
-        self.geometry("550x600+520+500")
+        self.geometry("400x500+520+500")
         self.resizable(width=True, height=True)
 
         self.frmTop = Frame(self, width=380, height=250)
-        self.frmMid = Frame(self, width=380, height=250)
+        self.frmMid = Frame(self, width=380, height=150)
         self.frmBtm = Frame(self, width=380, height=30)
-        self.frmRight = Frame(self, width=200, height=580)
         self.frmBtm['bg'] = bgColor
-        self.frmRight['bg'] = bgColor
 
         self.text_label_msgDisplay = Label(self, justify=LEFT, text=u"""消息列表""")
         self.text_label_usrName = Label(self, justify=LEFT, text=self.myUsrName)
@@ -374,36 +377,20 @@ class PrivateRoom(Tk):
         self.msg.grid(row=0, column=0)
 
         self.sendBtn = Button(self.frmBtm, text='发送消息', command=self.__sendMsgBtn)
-        # self.sendBtn.bind('<Button-2>', self.BtnCommand2)
-
-        self.pvtChatBtn = Button(self.frmRight, text='私聊', command=self.__privateChatCmd)
-
-        self.labelLastOnlineTime = Label(self.frmRight, text='         上次登录时间         \n')
-        self.labelTotalOnlineTime = Label(self.frmRight, text='        总共在线时间         \n')
-
-        self.userListStr = StringVar()
-        self.userList = Listbox(self.frmRight, borderwidth=1, highlightthickness=0, relief='flat', bg='#ededed',
-                                listvariable=self.userListStr)
+        self.sendBtn.grid()
 
         self.text_label_msgDisplay.grid(row=0, column=0, padx=2, pady=2, sticky=W)
         self.frmTop.grid(row=1, column=0, padx=2, pady=2)
         self.text_label_usrName.grid(row=2, column=0, padx=2, pady=2, sticky=W)
         self.frmMid.grid(row=3, column=0, padx=2, pady=2, )
         self.frmBtm.grid(row=4, column=0, padx=2, pady=2, )
-        self.frmRight.grid(row=0, column=1, rowspan=5, sticky=N + S)
 
-        self.sendBtn.grid()
-
-        self.labelLastOnlineTime.grid(row=0, column=0, pady='10m', sticky=E)
-        self.labelTotalOnlineTime.grid(row=1, column=0, pady='5m', sticky=E)
-        self.userList.place(x=7, y=308, width=150, height=250)
-        self.pvtChatBtn.place(x=7, y=560, width=90, height=25)
         self.frmTop.grid_propagate(0)
         self.frmMid.grid_propagate(0)
         self.frmBtm.grid_propagate(0)
-        self.frmRight.grid_propagate(0)
 
-
+    def __sendMsgBtn(self):
+        pass
 
 def myHandler(signum, frame):
     print('I received: ', signum)
