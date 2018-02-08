@@ -106,7 +106,6 @@ class Client:
         else:
             # print data
             for k, v in data.items():
-                v = str(v).decode('utf-8')
                 if k == 'SysLoginAck' or k == 'SysRegisterAck':
                     self.__sysMsgRecved.append(v)
                 elif k == 'Chat':

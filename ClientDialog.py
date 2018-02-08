@@ -1,13 +1,13 @@
 # -*- coding: UTF-8 -*-
 
+import signal
+import threading
+import time
+from ScrolledText import ScrolledText
 from Tkinter import *
+
 from ClientEnd import *
 from Utilities import *
-
-import time
-import threading
-import signal
-
 
 
 # login window
@@ -147,45 +147,55 @@ class Dialog(Tk):
 
     def setUsrName(self, myStr):
         self.usrName = myStr
-        self.label2['text'] = myStr
+        self.text_label_usrName['text'] = myStr
         print self.usrName
 
     def configureUI(self):
         # main window
+        bgColor = '#208090'
+        self['bg'] = bgColor
+        self.geometry("550x600+520+500")
+        self.resizable(width=True, height=True)
 
-        self.frmTop = Frame(self,width=380, height=250)
-        self.frmMid = Frame(self,width=380, height=250)
-        self.frmBtm = Frame(self,width=380, height=30)
-        self.frmRight = Frame(self,bg='grey',width=180, height=580)
+        self.frmTop = Frame(self, width=380, height=250)
+        self.frmMid = Frame(self, width=380, height=250)
+        self.frmBtm = Frame(self, width=380, height=30)
+        self.frmRight = Frame(self, width=200, height=580)
+        self.frmBtm['bg'] = bgColor
+        self.frmRight['bg'] = bgColor
 
-        self.label1 = Label(self, justify=LEFT, text=u"""消息列表""")
-        self.label2 = Label(self, justify=LEFT, text=self.usrName)
+        self.text_label_msgDisplay = Label(self, justify=LEFT, text=u"""消息列表""")
+        self.text_label_usrName = Label(self, justify=LEFT, text=self.usrName)
 
-        self.msgList = Text(self.frmTop, width=260, height=230)
-        self.msg = Text(self.frmMid, width=260, height=230)
+        self.msgList = ScrolledText(self.frmTop, borderwidth=1, highlightthickness=0, relief='flat', bg='#fffff0')
+        self.msgList.tag_config('userColor', foreground='red')
+        self.msgList.place(x=0, y=0, width=380, height=250)
+
+        self.msg = ScrolledText(self.frmMid)
+        self.msg.grid(row=0, column=0)
 
         self.sendBtn = Button(self.frmBtm, text = '发送消息', command=self.BtnCommand)
         self.sendBtn.bind('<Button-2>', self.BtnCommand2)
 
-        self.labelLastOnlineTime = Label(self.frmRight,  text='上次登录时间\n')
-        self.labelTotalOnlineTime = Label(self.frmRight, text='总共在线时间\n')
+        self.labelLastOnlineTime = Label(self.frmRight, text='         上次登录时间         \n')
+        self.labelTotalOnlineTime = Label(self.frmRight, text='        总共在线时间         \n')
 
-        self.label1.grid(row = 0, column = 0,sticky=W)
-        self.frmTop.grid(row = 1, column = 0)
-        self.label2.grid(row=2, column=0,sticky=W)
-        self.frmMid.grid(row = 3, column = 0)
-        self.frmBtm.grid(row=4, column=0)
-        self.frmRight.grid(row=0, column=1,rowspan=5,sticky=N+S)
+        self.userListStr = StringVar()
+        self.userList = Listbox(self.frmRight, borderwidth=1, highlightthickness=0, relief='flat', bg='#ededed',
+                                listvariable=self.userListStr)
 
-        self.msgList.grid()
-        self.msgList.tag_config('userColor', foreground='red')
+        self.text_label_msgDisplay.grid(row=0, column=0, padx=2, pady=2, sticky=W)
+        self.frmTop.grid(row=1, column=0, padx=2, pady=2)
+        self.text_label_usrName.grid(row=2, column=0, padx=2, pady=2, sticky=W)
+        self.frmMid.grid(row=3, column=0, padx=2, pady=2, )
+        self.frmBtm.grid(row=4, column=0, padx=2, pady=2, )
+        self.frmRight.grid(row=0, column=1, rowspan=5, sticky=N + S)
 
-        self.msg.grid()
         self.sendBtn.grid()
 
-        self.labelLastOnlineTime.grid(row = 0, column = 0, pady='10m', sticky=E)
-        self.labelTotalOnlineTime.grid(row = 1, column = 0, pady='5m', sticky=E)
-
+        self.labelLastOnlineTime.grid(row=0, column=0, pady='10m', sticky=E)
+        self.labelTotalOnlineTime.grid(row=1, column=0, pady='5m', sticky=E)
+        self.userList.place(x=7, y=308, width=150, height=250)
         self.frmTop.grid_propagate(0)
         self.frmMid.grid_propagate(0)
         self.frmBtm.grid_propagate(0)
@@ -216,7 +226,11 @@ class Dialog(Tk):
             time.sleep(0.1)
             msg = self.client.popChatMsgFromQueue()
             if msg != None:
-                self.msgList.insert(END, msg)
+                seperator = msg.find(': ')
+                usr = msg[0:seperator + 1]
+                usrMsg = msg[seperator + 1:]
+                usr = usr + time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
+                self.msgList.insert(END, usr + usrMsg)
         print 'end of displaying msg thread'
 
     def __setUsrOnlineTimeLoop(self):
