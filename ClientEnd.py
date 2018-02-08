@@ -49,12 +49,12 @@ class Client:
     def isSocketAlive(self):
         return self.__isSocketAlive
 
-    def addMsgToQueue(self, msg):
+    def appendToMsgSendingQueue(self, msg):
         self.__msgToSend.append(msg)
 
     def popChatMsgFromQueue(self):
         if len(self.__chatMsgRecved) > 0:
-            return self.__chatMsgRecved.pop()
+            return self.__chatMsgRecved.pop(0)
         else:
             return None
 
@@ -63,14 +63,14 @@ class Client:
 
     def popSysMsgFromQueue(self):
         if len(self.__sysMsgRecved) > 0:
-            return self.__sysMsgRecved.pop()
+            return self.__sysMsgRecved.pop(0)
         else:
             return None
 
     def sendMsg(self):
         while self.__isSocketAlive:
             if len(self.__msgToSend) > 0:
-                msg = self.__msgToSend.pop()
+                msg = self.__msgToSend.pop(0)
                 self.__safeSocketSend(msg)
             time.sleep(0.1)
 
@@ -94,6 +94,20 @@ class Client:
             time.sleep(0.1)
 
     def __parseRecvedData(self, msg):
+        '''
+        the protocol of msg we used here are as following:
+        all the message are packed in a dict structure:
+
+        message can be attributed as system message or chat message, which leads to the dict structure:
+        1. {'SysMsg': {a:b}}:
+            a field are used to identify the types of system msg, for instance: "SysLoginRequest"
+            b field are usually the real msg that we want to send, it could be a str or dict, according to the type of a field
+        2. {'ChatMsg': {a:b}}:
+            a field here is to identify to whom the chat msg is to send:
+                'toAll' means: we want to broadcast the msg
+                if a field is a user name, it means we want to send msg privately
+            b field is the msg we want to send
+        '''
         try:
             data = json.loads(msg)
         except ValueError as e:
@@ -108,14 +122,6 @@ class Client:
                     self.__chatMsgRecved.append(v)
                 elif k == 'SysMsg':
                     # v will be a dict, like {'SysLoginRequestAck': 'xxx'} or {'allUsernames': {}}
-                    # print k, v
-                    self.__sysMsgRecved.append(v)
-                # the following should be removed
-                elif k == 'SysLoginAck' or k == 'SysRegisterAck':
-                    self.__sysMsgRecved.append(v)
-                elif k == 'SysUsrOnlineDurationMsg':
-                    self.__usrOnlineTimeMsg.append(v)
-                elif k == 'SysAllOnlineClientsAck':
                     self.__sysMsgRecved.append(v)
 
 
@@ -142,6 +148,7 @@ class Client:
     def __safeSocketSend(self, msg):
         if not socketSend(self.clientSock, msg):
             self.__isSocketAlive = False
+            self.closeClient()
 
 if __name__ == "__main__":
 

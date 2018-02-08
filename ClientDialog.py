@@ -56,21 +56,27 @@ class LoginWindow(Toplevel):
 
     def tryLogin(self):
 
+        self.logBtnEnter['state'] = 'disabled'
+
         if self.mainFrm.hasAlreadyLoggedIn():
             print "already logged in"
-            return
+            return False
 
         self.__usrName = self.logUsrName.get()
         password = self.logUsrPWD.get()
 
         jstr = packageSysMsg('SysLoginRequest', {self.__usrName: password})
-        self.__client.addMsgToQueue(jstr)
-
-        # sysLoginMsgSet = {"Account Not exists", "This User is already online", "Successful login", "Invalid login"}
-        # sysMsg = None
+        self.__client.appendToMsgSendingQueue(jstr)
 
         # wait for system login msg replied from server
+        count = 0
         while 1:
+            count += 1
+            if count > 1000:
+                self.logInfo['text'] = "Failed to login, please try again"
+                self.logBtnEnter['state'] = 'normal'
+                return False
+
             sysMsg = self.__client.popSysMsgFromQueue()
 
             # sysMsg is something like {"SysLoginAck": "Successful login"}
@@ -87,6 +93,7 @@ class LoginWindow(Toplevel):
                 return True
             else:
                 self.logInfo['text'] = sysMsg.values()[0]
+            self.logBtnEnter['state'] = 'normal'
             return False
 
     def enterBtn(self):
@@ -98,21 +105,29 @@ class LoginWindow(Toplevel):
             self.mainFrm.queryAllOnlineClients()
 
     def registBtn(self):
+        self.logBtnRegist['state'] = 'disabled'
+
         if self.mainFrm.hasAlreadyLoggedIn():
-            return
+            self.logBtnRegist['state'] = 'normal'
+            return False
 
         self.__usrName = self.logUsrName.get()
         password = self.logUsrPWD.get()
 
         jstr = packageSysMsg('SysRegisterRequest', {self.__usrName: password})
-        self.__client.addMsgToQueue(jstr)
-
-        # sysRegMsgSet = {"Account has already been registered", "Successful registration"}
-        # sysMsg = None
+        self.__client.appendToMsgSendingQueue(jstr)
 
         # wait for system registration reply msg from server
+        count = 0
         while 1:
+            count += 1
+            if count > 1000:
+                self.logInfo['text'] = "Failed to register, please try again"
+                self.logBtnRegist['state'] = 'normal'
+                return
+
             sysMsg = self.__client.popSysMsgFromQueue()
+
             # sysMsg is something like {"SysRegisterAck": "Successful registration"}
             if sysMsg == None:
                 time.sleep(0.2)
@@ -124,9 +139,11 @@ class LoginWindow(Toplevel):
         if sysMsg != None:
             if sysMsg.values()[0] == 'Succesful registration':
                 self.logInfo['text'] = sysMsg.values()[0]
+                self.logBtnRegist['state'] = 'normal'
                 return True
             else:
                 self.logInfo['text'] = sysMsg.values()[0]
+            self.logBtnRegist['state'] = 'normal'
             return False
 
     def closeDialog(self):
@@ -146,7 +163,7 @@ class Dialog(Tk):
 
     def __init__(self):
         Tk.__init__(self)
-        self.title(u"聊天窗口")
+        self.title(u"聊天大厅")
         self['background'] = 'grey'
         self.configureUI()
         self.withdraw()
@@ -161,7 +178,6 @@ class Dialog(Tk):
 
         if self.__client.isSocketAlive():
             self.__loginWin = LoginWindow(self, self.__client)
-
         else:
             print 'failed to connect server'
             sys.exit(1)
@@ -190,24 +206,21 @@ class Dialog(Tk):
         self.text_label_usrName['text'] = myStr
         print self.__usrName
 
-    def BtnCommand(self):
+    def __sendMsgBtn(self):
         self.msgList.insert(END, self.__usrName + ': ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + '\n ',
                             'userColor')
         usrMsg = self.msg.get('0.0', END)
         self.msgList.insert(END, usrMsg)
         self.msg.delete('0.0', END)
         data = packageChatMsg(usrMsg)
-        self.__client.addMsgToQueue(data)
-
-    def BtnCommand2(self, event):
-        self.msgList.insert(END, ' a message :')
+        self.__client.appendToMsgSendingQueue(data)
 
     def closeDialog(self):
         self.__client.closeClient()
         self.destroy()
 
     def __processChatMsg(self):
-        while self.__client.isSocketAlive():
+        while self.__client.isSocketAlive() and self.hasAlreadyLoggedIn():
             time.sleep(0.1)
             msgDict = self.__client.popChatMsgFromQueue()
             if msgDict != None:
@@ -219,17 +232,20 @@ class Dialog(Tk):
                         usrMsg = msg[seperator + 1:]
                         usr = usr + time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
                         self.msgList.insert(END, usr + usrMsg)
+                    else:
+                        pass
 
         print 'end of displaying chat msg thread'
 
     def queryAllOnlineClients(self):
         keyMsg = "SysAllOnlineClientsRequest"
         data = packageSysMsg(keyMsg, '')
-        self.__client.addMsgToQueue(data)
+        self.__client.appendToMsgSendingQueue(data)
 
     def __processSysMsg(self):
 
-        while self.__client.isSocketAlive():
+        while self.__client.isSocketAlive() and self.hasAlreadyLoggedIn():
+            time.sleep(1)
             sysMsg = self.__client.popSysMsgFromQueue()
 
             if sysMsg == None:
@@ -276,8 +292,10 @@ class Dialog(Tk):
         self.msg = ScrolledText(self.frmMid)
         self.msg.grid(row=0, column=0)
 
-        self.sendBtn = Button(self.frmBtm, text = '发送消息', command=self.BtnCommand)
-        self.sendBtn.bind('<Button-2>', self.BtnCommand2)
+        self.sendBtn = Button(self.frmBtm, text='发送消息', command=self.__sendMsgBtn)
+        # self.sendBtn.bind('<Button-2>', self.BtnCommand2)
+
+        self.pvtChatBtn = Button(self.frmRight, text='私聊', command=self.__privateChatCmd)
 
         self.labelLastOnlineTime = Label(self.frmRight, text='         上次登录时间         \n')
         self.labelTotalOnlineTime = Label(self.frmRight, text='        总共在线时间         \n')
@@ -298,10 +316,94 @@ class Dialog(Tk):
         self.labelLastOnlineTime.grid(row=0, column=0, pady='10m', sticky=E)
         self.labelTotalOnlineTime.grid(row=1, column=0, pady='5m', sticky=E)
         self.userList.place(x=7, y=308, width=150, height=250)
+        self.pvtChatBtn.place(x=7, y=560, width=90, height=25)
         self.frmTop.grid_propagate(0)
         self.frmMid.grid_propagate(0)
         self.frmBtm.grid_propagate(0)
         self.frmRight.grid_propagate(0)
+
+        for x in range(0, 10):
+            self.userList.insert(END, str(x + 100))
+
+    def __privateChatCmd(self):
+        sel = self.userList.curselection()
+        usrName = self.userList.get(sel)
+        pr = PrivateRoom(self.__usrName, usrName)
+        pr.mainloop()
+        print usrName
+
+
+class PrivateRoom(Tk):
+    friendUsrName = None
+    myUsrName = None
+
+    def __init__(self, mn, fn):
+        Tk.__init__(self)
+        self.title(u"私聊")
+        self['background'] = 'grey'
+        self.configureUI()
+        self.protocol('WM_DELETE_WINDOW', self.closeDialog)
+        self.myUsrName = mn
+        self.friendUsrName = fn
+
+    def closeDialog(self):
+        pass
+
+    def configureUI(self):
+        # main window
+        bgColor = '#208090'
+        self['bg'] = bgColor
+        self.geometry("550x600+520+500")
+        self.resizable(width=True, height=True)
+
+        self.frmTop = Frame(self, width=380, height=250)
+        self.frmMid = Frame(self, width=380, height=250)
+        self.frmBtm = Frame(self, width=380, height=30)
+        self.frmRight = Frame(self, width=200, height=580)
+        self.frmBtm['bg'] = bgColor
+        self.frmRight['bg'] = bgColor
+
+        self.text_label_msgDisplay = Label(self, justify=LEFT, text=u"""消息列表""")
+        self.text_label_usrName = Label(self, justify=LEFT, text=self.myUsrName)
+
+        self.msgList = ScrolledText(self.frmTop, borderwidth=1, highlightthickness=0, relief='flat', bg='#fffff0')
+        self.msgList.tag_config('userColor', foreground='red')
+        self.msgList.place(x=0, y=0, width=380, height=250)
+
+        self.msg = ScrolledText(self.frmMid)
+        self.msg.grid(row=0, column=0)
+
+        self.sendBtn = Button(self.frmBtm, text='发送消息', command=self.__sendMsgBtn)
+        # self.sendBtn.bind('<Button-2>', self.BtnCommand2)
+
+        self.pvtChatBtn = Button(self.frmRight, text='私聊', command=self.__privateChatCmd)
+
+        self.labelLastOnlineTime = Label(self.frmRight, text='         上次登录时间         \n')
+        self.labelTotalOnlineTime = Label(self.frmRight, text='        总共在线时间         \n')
+
+        self.userListStr = StringVar()
+        self.userList = Listbox(self.frmRight, borderwidth=1, highlightthickness=0, relief='flat', bg='#ededed',
+                                listvariable=self.userListStr)
+
+        self.text_label_msgDisplay.grid(row=0, column=0, padx=2, pady=2, sticky=W)
+        self.frmTop.grid(row=1, column=0, padx=2, pady=2)
+        self.text_label_usrName.grid(row=2, column=0, padx=2, pady=2, sticky=W)
+        self.frmMid.grid(row=3, column=0, padx=2, pady=2, )
+        self.frmBtm.grid(row=4, column=0, padx=2, pady=2, )
+        self.frmRight.grid(row=0, column=1, rowspan=5, sticky=N + S)
+
+        self.sendBtn.grid()
+
+        self.labelLastOnlineTime.grid(row=0, column=0, pady='10m', sticky=E)
+        self.labelTotalOnlineTime.grid(row=1, column=0, pady='5m', sticky=E)
+        self.userList.place(x=7, y=308, width=150, height=250)
+        self.pvtChatBtn.place(x=7, y=560, width=90, height=25)
+        self.frmTop.grid_propagate(0)
+        self.frmMid.grid_propagate(0)
+        self.frmBtm.grid_propagate(0)
+        self.frmRight.grid_propagate(0)
+
+
 
 def myHandler(signum, frame):
     print('I received: ', signum)

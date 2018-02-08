@@ -10,6 +10,7 @@ def packageChatMsg(msg):
     rtnStr['ChatMsg'] = {'toAll': msg}
     return json.dumps(rtnStr)
 
+
 def packageSysMsg(key, msg):
     rtnStr = {}
     rtnStr['SysMsg'] = {key: msg}
