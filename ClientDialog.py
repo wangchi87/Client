@@ -1,8 +1,6 @@
 # -*- coding: UTF-8 -*-
 
 import signal
-import threading
-import time
 from ScrolledText import ScrolledText
 from Tkinter import *
 
@@ -16,9 +14,9 @@ class LoginWindow(Toplevel):
     this class is used to create a login window
     '''
 
-    client = None
+    __client = None
     mainFrm = None
-    usrName = None
+    __usrName = None
 
     def __init__(self, mainFrm, client):
         Toplevel.__init__(self)
@@ -28,7 +26,7 @@ class LoginWindow(Toplevel):
         self.geometry(logFrmPos)
         self.configureUI()
 
-        self.client = client
+        self.__client = client
         self.protocol('WM_DELETE_WINDOW', self.closeDialog)
 
     def configureUI(self):
@@ -56,63 +54,95 @@ class LoginWindow(Toplevel):
         self.logBtnEnter.grid(row=4, column=0, columnspan=2, pady='2m')
         self.logBtnRegist.grid(row=5, column=0, columnspan=2, pady='1m')
 
-        # self.logFrm.grid_propagate(0)
-
     def tryLogin(self):
-        self.usrName = self.logUsrName.get()
+
+        if self.mainFrm.hasAlreadyLoggedIn():
+            print "already logged in"
+            return
+
+        self.__usrName = self.logUsrName.get()
         password = self.logUsrPWD.get()
 
-        jstr = packageMsg('SysLoginRequest', {self.usrName: password})
-        self.client.addMsgToQueue(jstr)
+        jstr = packageSysMsg('SysLoginRequest', {self.__usrName: password})
+        self.__client.addMsgToQueue(jstr)
 
+        # sysLoginMsgSet = {"Account Not exists", "This User is already online", "Successful login", "Invalid login"}
+        # sysMsg = None
+
+        # wait for system login msg replied from server
         while 1:
-            sysMsg = self.client.popSysMsgFromQueue()
-            if sysMsg != None:
-                if sysMsg =='Successful login':
-                    return True
-                else:
-                    self.logInfo['text'] = sysMsg
-                return False
+            sysMsg = self.__client.popSysMsgFromQueue()
 
+            # sysMsg is something like {"SysLoginAck": "Successful login"}
+            if sysMsg == None:
+                time.sleep(0.2)
+            elif sysMsg.keys()[0] == 'SysLoginAck':
+                break
+            else:
+                self.__client.appendSysMsg(sysMsg)
+
+        if sysMsg != None:
+            if sysMsg.values()[0] == 'Successful login':
+                self.mainFrm.usrLoggedIn()
+                return True
+            else:
+                self.logInfo['text'] = sysMsg.values()[0]
+            return False
 
     def enterBtn(self):
         if self.tryLogin():
             self.destroy()
             self.mainFrm.deiconify()
-            self.mainFrm.setUsrName(self.usrName)
-
+            self.mainFrm.setUsrName(self.__usrName)
+            self.mainFrm.startMsgThread()
+            self.mainFrm.queryAllOnlineClients()
 
     def registBtn(self):
-        self.usrName = self.logUsrName.get()
+        if self.mainFrm.hasAlreadyLoggedIn():
+            return
+
+        self.__usrName = self.logUsrName.get()
         password = self.logUsrPWD.get()
 
-        jstr = packageMsg('SysRegisterRequest', {self.usrName: password})
-        self.client.addMsgToQueue(jstr)
+        jstr = packageSysMsg('SysRegisterRequest', {self.__usrName: password})
+        self.__client.addMsgToQueue(jstr)
 
+        # sysRegMsgSet = {"Account has already been registered", "Successful registration"}
+        # sysMsg = None
+
+        # wait for system registration reply msg from server
         while 1:
-            sysMsg = self.client.popSysMsgFromQueue()
-            if sysMsg != None:
-                if sysMsg =='Succesful registration':
-                    self.logInfo['text'] = sysMsg
-                    return True
-                else:
-                    self.logInfo['text'] = sysMsg
-                return False
+            sysMsg = self.__client.popSysMsgFromQueue()
+            # sysMsg is something like {"SysRegisterAck": "Successful registration"}
+            if sysMsg == None:
+                time.sleep(0.2)
+            elif sysMsg.keys()[0] == 'SysRegisterAck':
+                break
+            else:
+                self.__client.appendSysMsg(sysMsg)
+
+        if sysMsg != None:
+            if sysMsg.values()[0] == 'Succesful registration':
+                self.logInfo['text'] = sysMsg.values()[0]
+                return True
+            else:
+                self.logInfo['text'] = sysMsg.values()[0]
+            return False
 
     def closeDialog(self):
-        self.client.closeClient()
+        self.__client.closeClient()
         self.mainFrm.destroy()
 
 
 class Dialog(Tk):
+    __usrName = 'usrName'
+    __loginWin = None
+    __client = None
 
-    usrName = 'usrName'
-    loginWin = None
-    clientSock = None
-    client = None
+    __loggedIn = False
 
-    msgThread = None
-
+    __sysMsgThread = None
+    __chatMsgThread = None
 
     def __init__(self):
         Tk.__init__(self)
@@ -122,33 +152,105 @@ class Dialog(Tk):
         self.withdraw()
         self.protocol('WM_DELETE_WINDOW', self.closeDialog)
 
+        self.__chatMsgThread = threading.Thread(target=self.__processChatMsg)
+        self.__chatMsgThread.setDaemon(True)
+        self.__sysMsgThread = threading.Thread(target=self.__processSysMsg)
+        self.__sysMsgThread.setDaemon(True)
+
         self.__connect()
 
-        if self.client.isSocketAlive():
-            self.loginWin = LoginWindow(self, self.client)
+        if self.__client.isSocketAlive():
+            self.__loginWin = LoginWindow(self, self.__client)
 
-            displayMsgThread = threading.Thread(target=self.__displayMsg)
-            displayMsgThread.setDaemon(True)
-            displayMsgThread.start()
-
-            usrOnlineMsgThread = threading.Thread(target=self.__setUsrOnlineTimeLoop)
-            usrOnlineMsgThread.setDaemon(True)
-            usrOnlineMsgThread.start()
         else:
             print 'failed to connect server'
             sys.exit(1)
 
         self.mainloop()
 
-    def __connect(self):
-        self.client = Client()
-        self.client.connectToServer()
+    def hasAlreadyLoggedIn(self):
+        return self.__loggedIn
 
+    def usrLoggedIn(self):
+        self.__loggedIn = True
+
+    def usrLoggedOut(self):
+        self.__loggedIn = False
+
+    def startMsgThread(self):
+        self.__chatMsgThread.start()
+        self.__sysMsgThread.start()
+
+    def __connect(self):
+        self.__client = Client()
+        self.__client.connectToServer()
 
     def setUsrName(self, myStr):
-        self.usrName = myStr
+        self.__usrName = myStr
         self.text_label_usrName['text'] = myStr
-        print self.usrName
+        print self.__usrName
+
+    def BtnCommand(self):
+        self.msgList.insert(END, self.__usrName + ': ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + '\n ',
+                            'userColor')
+        usrMsg = self.msg.get('0.0', END)
+        self.msgList.insert(END, usrMsg)
+        self.msg.delete('0.0', END)
+        data = packageChatMsg(usrMsg)
+        self.__client.addMsgToQueue(data)
+
+    def BtnCommand2(self, event):
+        self.msgList.insert(END, ' a message :')
+
+    def closeDialog(self):
+        self.__client.closeClient()
+        self.destroy()
+
+    def __processChatMsg(self):
+        while self.__client.isSocketAlive():
+            time.sleep(0.1)
+            msgDict = self.__client.popChatMsgFromQueue()
+            if msgDict != None:
+                for k, v in msgDict.items():
+                    if k == 'toAll':
+                        msg = v
+                        seperator = msg.find(': ')
+                        usr = msg[0:seperator + 1]
+                        usrMsg = msg[seperator + 1:]
+                        usr = usr + time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
+                        self.msgList.insert(END, usr + usrMsg)
+
+        print 'end of displaying chat msg thread'
+
+    def queryAllOnlineClients(self):
+        keyMsg = "SysAllOnlineClientsRequest"
+        data = packageSysMsg(keyMsg, '')
+        self.__client.addMsgToQueue(data)
+
+    def __processSysMsg(self):
+
+        while self.__client.isSocketAlive():
+            sysMsg = self.__client.popSysMsgFromQueue()
+
+            if sysMsg == None:
+                time.sleep(0.5)
+            else:
+                # print 'sysMsg: ', sysMsg
+                for k, v in sysMsg.items():
+                    if k == 'SysUsrOnlineDurationMsg':
+                        self.__setUsrTime(v)
+
+                    if k == 'SysAllOnlineClientsAck':
+                        for i, j in v.items():
+                            if i == 'allOnlineUsernames':
+                                for e in j:
+                                    self.userList.insert(END, e)
+
+    def __setUsrTime(self, timeStr):
+        if timeStr != None:
+            msg = timeStr.split(';')
+            self.labelLastOnlineTime['text'] = '上次登录时间\n'.decode('utf-8') + msg[0]
+            self.labelTotalOnlineTime['text'] = '总共在线时间\n'.decode('utf-8') + msg[1]
 
     def configureUI(self):
         # main window
@@ -165,7 +267,7 @@ class Dialog(Tk):
         self.frmRight['bg'] = bgColor
 
         self.text_label_msgDisplay = Label(self, justify=LEFT, text=u"""消息列表""")
-        self.text_label_usrName = Label(self, justify=LEFT, text=self.usrName)
+        self.text_label_usrName = Label(self, justify=LEFT, text=self.__usrName)
 
         self.msgList = ScrolledText(self.frmTop, borderwidth=1, highlightthickness=0, relief='flat', bg='#fffff0')
         self.msgList.tag_config('userColor', foreground='red')
@@ -200,51 +302,6 @@ class Dialog(Tk):
         self.frmMid.grid_propagate(0)
         self.frmBtm.grid_propagate(0)
         self.frmRight.grid_propagate(0)
-
-    def BtnCommand(self):
-        self.msgList.insert(END, self.usrName +': '+ time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + '\n ', 'userColor')
-        usrMsg = self.msg.get('0.0', END)
-        self.msgList.insert(END, usrMsg)
-        self.msg.delete('0.0', END)
-        msg = {}
-        msg['Chat'] = usrMsg
-        data = json.dumps(msg)
-
-        self.client.addMsgToQueue(data)
-        # socketSend(self.clientSock, usrMsg)
-
-    def BtnCommand2(self, event):
-        self.msgList.insert(END, ' a message :')
-
-
-    def closeDialog(self):
-        self.client.closeClient()
-        self.destroy()
-
-    def __displayMsg(self):
-        while self.client.isSocketAlive():
-            time.sleep(0.1)
-            msg = self.client.popChatMsgFromQueue()
-            if msg != None:
-                seperator = msg.find(': ')
-                usr = msg[0:seperator + 1]
-                usrMsg = msg[seperator + 1:]
-                usr = usr + time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
-                self.msgList.insert(END, usr + usrMsg)
-        print 'end of displaying msg thread'
-
-    def __setUsrOnlineTimeLoop(self):
-        while self.client.isSocketAlive():
-            time.sleep(5)
-            self.setUsrTime()
-        print 'end of updating usr online time'
-
-    def setUsrTime(self):
-        msg = self.client.popUsrOnlineTimeMsgFromQueue()
-        if msg != None:
-            msg = msg.split(';')
-            self.labelLastOnlineTime['text'] = '上次登录时间\n'.decode('utf-8') + msg[0]
-            self.labelTotalOnlineTime['text'] = '总共在线时间\n'.decode('utf-8') + msg[1]
 
 def myHandler(signum, frame):
     print('I received: ', signum)

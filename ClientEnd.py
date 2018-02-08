@@ -21,10 +21,9 @@ class Client:
     sendThread = None
     recvThread = None
 
-    msgToSend = []
+    __msgToSend = []
     __chatMsgRecved = []
     __sysMsgRecved = []
-    __usrOnlineTimeMsg = []
 
     def __init__(self):
         self.host = '127.0.0.1'#socket.gethostname()
@@ -51,7 +50,7 @@ class Client:
         return self.__isSocketAlive
 
     def addMsgToQueue(self, msg):
-        self.msgToSend.append(msg)
+        self.__msgToSend.append(msg)
 
     def popChatMsgFromQueue(self):
         if len(self.__chatMsgRecved) > 0:
@@ -59,22 +58,19 @@ class Client:
         else:
             return None
 
+    def appendSysMsg(self, msg):
+        self.__sysMsgRecved.append(msg)
+
     def popSysMsgFromQueue(self):
         if len(self.__sysMsgRecved) > 0:
             return self.__sysMsgRecved.pop()
         else:
             return None
 
-    def popUsrOnlineTimeMsgFromQueue(self):
-        if len(self.__usrOnlineTimeMsg) > 0:
-            return self.__usrOnlineTimeMsg.pop()
-        else:
-            return None
-
     def sendMsg(self):
         while self.__isSocketAlive:
-            if len(self.msgToSend) > 0:
-                msg = self.msgToSend.pop()
+            if len(self.__msgToSend) > 0:
+                msg = self.__msgToSend.pop()
                 self.__safeSocketSend(msg)
             time.sleep(0.1)
 
@@ -106,12 +102,22 @@ class Client:
         else:
             # print data
             for k, v in data.items():
-                if k == 'SysLoginAck' or k == 'SysRegisterAck':
-                    self.__sysMsgRecved.append(v)
-                elif k == 'Chat':
+                # print k, v
+                if k == 'ChatMsg':
+                    # v will be a dict {'toAll': msg} or {'XXX': msg}
                     self.__chatMsgRecved.append(v)
+                elif k == 'SysMsg':
+                    # v will be a dict, like {'SysLoginRequestAck': 'xxx'} or {'allUsernames': {}}
+                    # print k, v
+                    self.__sysMsgRecved.append(v)
+                # the following should be removed
+                elif k == 'SysLoginAck' or k == 'SysRegisterAck':
+                    self.__sysMsgRecved.append(v)
                 elif k == 'SysUsrOnlineDurationMsg':
                     self.__usrOnlineTimeMsg.append(v)
+                elif k == 'SysAllOnlineClientsAck':
+                    self.__sysMsgRecved.append(v)
+
 
     def closeClient(self):
         if self.__isSocketAlive:
