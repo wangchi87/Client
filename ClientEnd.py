@@ -113,12 +113,13 @@ class Client:
                 if msgStartIndex > 0:
                     print("there might be error in data buffer")
 
-                msgHeader = self.__dataBuffer[msgStartIndex:msgStartIndex + self.__msgHeaderSize]
+                msgHeaderEndIndex = msgStartIndex + self.__msgHeaderSize
+                msgHeader = self.__dataBuffer[msgStartIndex:msgHeaderEndIndex]
                 headPack = struct.unpack('!9sI', msgHeader)
                 msgBodySize = headPack[1]
-                msgBody = self.__dataBuffer[
-                          msgStartIndex + self.__msgHeaderSize: msgStartIndex + self.__msgHeaderSize + msgBodySize]
-                print msgBody
+                msgBodyEndIndex = msgHeaderEndIndex + msgBodySize
+                msgBody = self.__dataBuffer[msgHeaderEndIndex: msgBodyEndIndex]
+                # print msgBody
                 self.__parseRecvedData(msgBody)
 
                 if self.__dataBufMutexLock.acquire():

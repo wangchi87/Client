@@ -286,7 +286,7 @@ class Dialog(Tk):
                     if k == 'SysAllOnlineClientsAck':
                         if v.keys()[0] == 'allOnlineUsernames':
                             allCurrentUsers = self.userList.get(0, self.userList.size() - 1)
-                            for e in v.values():
+                            for e in v.values()[0]:
                                 if e != self.__usrName and e not in allCurrentUsers:
                                     self.userList.insert(END, e)
 

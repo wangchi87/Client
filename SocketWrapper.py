@@ -86,11 +86,8 @@ def socketRecv(sock, recvBuffSize):
     global dataBuffer
 
     while 1:
-        print 'first loop', dataBuffer
-        # sock.settimeout(1.0)
         data = sock.recv(recvBuffSize)
-        # sock.settimeout(None)
-        print 'unblock'
+
         # client never send ''!
         # this will happen only when the client is terminated unexpectedly
         if not data:
@@ -100,7 +97,6 @@ def socketRecv(sock, recvBuffSize):
         dataBuffer = dataBuffer + data
 
         while 1:
-            print 'second loop', dataBuffer
             if len(dataBuffer) < headerSize:
                 print "data less is than header"
                 break
@@ -113,11 +109,7 @@ def socketRecv(sock, recvBuffSize):
                 break
 
             msg = dataBuffer[headerSize:headerSize + msgBodySize]
-
             dataBuffer = dataBuffer[headerSize + msgBodySize:]
-
-            # print dataBuffer
-
             return msg
 
 # def socketRecv(sock, recvBuffSize):
