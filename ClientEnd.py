@@ -25,9 +25,15 @@ class Client:
     __chatMsgRecved = []
     __sysMsgRecved = []
 
+    __dataBuffer = ''
+    __dataBufMutexLock = None
+
+    __msgHeaderSize = 13
+
     def __init__(self):
         self.host = '127.0.0.1'#socket.gethostname()
         self.clientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.__dataBufMutexLock = threading.Lock()
 
     def connectToServer(self):
         self.__isSocketAlive = socketConnection(self.clientSock, self.host, self.port)
@@ -43,6 +49,10 @@ class Client:
         self.sendThread = threading.Thread(target=self.sendMsg)
         self.sendThread.setDaemon(True)
         self.sendThread.start()
+
+        self.proMsgThread = threading.Thread(target=self.readMsgFromBuf)
+        self.proMsgThread.setDaemon(True)
+        self.proMsgThread.start()
 
         return self.__isSocketAlive
 
@@ -75,9 +85,10 @@ class Client:
             time.sleep(0.1)
 
     def recvMsg(self):
+        # append received data to data buffer
         while self.__isSocketAlive:
             try:
-                recvedData = socketRecv(self.clientSock, self.RECV_BUFFER)
+                recvedData = self.clientSock.recv(self.RECV_BUFFER)
             except socket.error as err:
                 print "failed to receive data", err
                 self.closeClient()
@@ -86,12 +97,35 @@ class Client:
                 if (not recvedData):
                     print "program terminated"
                     break
-                if recvedData == 'server msg: SERVER_SHUTDOWN':
-                    print "server is shut down"
-                    break
-                # print recvedData
-                self.__parseRecvedData(recvedData)
-            time.sleep(0.1)
+                while 1:
+                    if self.__dataBufMutexLock.acquire():
+                        self.__dataBuffer += recvedData
+                        self.__dataBufMutexLock.release()
+                        break
+
+    def readMsgFromBuf(self):
+        # process msg in data buffer
+        while self.__isSocketAlive:
+            while len(self.__dataBuffer) > 0:
+
+                msgStartIndex = self.__dataBuffer.find('msgHeader')
+
+                if msgStartIndex > 0:
+                    print("there might be error in data buffer")
+
+                msgHeader = self.__dataBuffer[msgStartIndex:msgStartIndex + self.__msgHeaderSize]
+                headPack = struct.unpack('!9sI', msgHeader)
+                msgBodySize = headPack[1]
+                msgBody = self.__dataBuffer[
+                          msgStartIndex + self.__msgHeaderSize: msgStartIndex + self.__msgHeaderSize + msgBodySize]
+                print msgBody
+                self.__parseRecvedData(msgBody)
+
+                if self.__dataBufMutexLock.acquire():
+                    self.__dataBuffer = self.__dataBuffer[msgStartIndex + self.__msgHeaderSize + msgBodySize:]
+                    self.__dataBufMutexLock.release()
+
+
 
     def __parseRecvedData(self, msg):
         '''
@@ -114,11 +148,12 @@ class Client:
             print 'exception in loading json data', e
             print msg
         else:
-            # print data
+            print data
             for k, v in data.items():
                 # print k, v
                 if k == 'ChatMsg':
                     # v will be a dict {'toAll': msg} or {'XXX': msg}
+                    print v
                     self.__chatMsgRecved.append(v)
                 elif k == 'SysMsg':
                     # v will be a dict, like {'SysLoginRequestAck': 'xxx'} or {'allUsernames': {}}
@@ -143,7 +178,7 @@ class Client:
         '''
         while self.__isSocketAlive:
             self.__safeSocketSend("-^-^-pyHB-^-^-")
-            time.sleep(0.5)
+            time.sleep(1000)
 
     def __safeSocketSend(self, msg):
         if not socketSend(self.clientSock, msg):

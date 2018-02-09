@@ -5,7 +5,8 @@ def packageMsg(key, msg):
     rtnStr[key] = msg
     return json.dumps(rtnStr)
 
-def packageChatMsg(msg):
+
+def packagePublicChatMsg(msg):
     rtnStr = {}
     rtnStr['ChatMsg'] = {'toAll': msg}
     return json.dumps(rtnStr)

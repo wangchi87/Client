@@ -29,11 +29,17 @@ class LoginWindow(Toplevel):
         self.protocol('WM_DELETE_WINDOW', self.closeDialog)
 
     def configureUI(self):
-        logFrmPos = '%dx%d+%d+%d' % (250, 330, (1500 - 400) / 2, (900 - 300) / 2)
+        logFrmPos = '%dx%d+%d+%d' % (325, 330, (1500 - 400) / 2, (900 - 300) / 2)
         self.geometry(logFrmPos)
+        self.resizable(width=True, height=True)
 
         self.logFrm = Frame(self)
-        self.logFrm.place(x=0, y=0, width=250, height=330)
+        self.logLeft = Frame(self, width=70, height=330)
+        self.logRight = Frame(self, width=70, height=330)
+        self.logLeft.grid(row=0, column=0)
+        self.logFrm.grid(row=0, column=1)
+        self.logRight.grid(row=0, column=2)
+        # self.logFrm.place(x=0, y=0, width=250, height=330)
 
         self.logCaption = Label(self.logFrm, text=u'登录窗口')
 
@@ -82,13 +88,13 @@ class LoginWindow(Toplevel):
 
             # sysMsg is something like {"SysLoginAck": "Successful login"}
             if sysMsg == None:
-                time.sleep(0.2)
+                time.sleep(0.002)
             elif sysMsg.keys()[0] == 'SysLoginAck':
                 break
             else:
                 self.__client.appendSysMsg(sysMsg)
 
-        if sysMsg != None:
+        if sysMsg is not None:
             if sysMsg.values()[0] == 'Successful login':
                 self.mainFrm.usrLoggedIn()
                 return True
@@ -137,7 +143,7 @@ class LoginWindow(Toplevel):
                 self.__client.appendSysMsg(sysMsg)
                 time.sleep(0.2)
 
-        if sysMsg != None:
+        if sysMsg is not None:
             if sysMsg.values()[0] == 'Succesful registration':
                 self.logInfo['text'] = sysMsg.values()[0]
                 self.logBtnRegist['state'] = 'normal'
@@ -161,6 +167,8 @@ class Dialog(Tk):
 
     __sysMsgThread = None
     __chatMsgThread = None
+
+    __privateRooms = {}
 
     def __init__(self):
         Tk.__init__(self)
@@ -208,12 +216,15 @@ class Dialog(Tk):
         print self.__usrName
 
     def __sendMsgBtn(self):
+
+        self.msgList['state'] = 'normal'
         self.msgList.insert(END, self.__usrName + ': ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + '\n ',
                             'userColor')
         usrMsg = self.msg.get('0.0', END)
         self.msgList.insert(END, usrMsg)
+        self.msgList['state'] = 'disabled'
         self.msg.delete('0.0', END)
-        data = packageChatMsg(usrMsg)
+        data = packagePublicChatMsg(usrMsg)
         self.__client.appendToMsgSendingQueue(data)
 
     def closeDialog(self):
@@ -224,7 +235,9 @@ class Dialog(Tk):
         while self.__client.isSocketAlive() and self.hasAlreadyLoggedIn():
             time.sleep(0.1)
             msgDict = self.__client.popChatMsgFromQueue()
-            if msgDict != None:
+            if msgDict is not None:
+                self.msgList['state'] = 'normal'
+                print msgDict
                 for k, v in msgDict.items():
                     if k == 'toAll':
                         msg = v
@@ -234,7 +247,21 @@ class Dialog(Tk):
                         usr = usr + time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
                         self.msgList.insert(END, usr + usrMsg)
                     else:
+                        # print k, v
+                        # privateRoom = None
+                        # if self.__privateRooms.has_key(k):
+                        #     privateRoom = self.__privateRooms[k]
+                        # else:
+                        #     privateRoom = PrivateRoom(self.__usrName, k, self.__client, self)
+                        #     prt = threading.Thread(target=privateRoom.mainloop)
+                        #     prt.setDaemon(True)
+                        #     prt.start()
+                        #     self.__privateRooms[k] = privateRoom
+                        # print privateRoom
+                        # privateRoom.appendMsgToMsgList(v)
+                        self.msgList.insert(END, v)
                         pass
+                self.msgList['state'] = 'disabled'
 
         print 'end of displaying chat msg thread'
 
@@ -246,11 +273,10 @@ class Dialog(Tk):
     def __processSysMsg(self):
 
         while self.__client.isSocketAlive() and self.hasAlreadyLoggedIn():
-            time.sleep(1)
             sysMsg = self.__client.popSysMsgFromQueue()
 
-            if sysMsg == None:
-                time.sleep(0.5)
+            if sysMsg is None:
+                time.sleep(0.2)
             else:
                 # print 'sysMsg: ', sysMsg
                 for k, v in sysMsg.items():
@@ -258,13 +284,30 @@ class Dialog(Tk):
                         self.__setUsrTime(v)
 
                     if k == 'SysAllOnlineClientsAck':
-                        for i, j in v.items():
-                            if i == 'allOnlineUsernames':
-                                for e in j:
+                        if v.keys()[0] == 'allOnlineUsernames':
+                            allCurrentUsers = self.userList.get(0, self.userList.size() - 1)
+                            for e in v.values():
+                                if e != self.__usrName and e not in allCurrentUsers:
                                     self.userList.insert(END, e)
 
+                    if k == 'SysUsrLogin' and v != self.__usrName:
+                        allCurrentUsers = self.userList.get(0, self.userList.size() - 1)
+                        if v not in allCurrentUsers:
+                            self.userList.insert(END, v)
+
+                    if k == 'SysUsrLogOut' and v != self.__usrName:
+                        for i in range(0, self.userList.size()):
+                            if v == self.userList.get(i):
+                                self.userList.delete(i)
+
+                    if k == 'SERVER_SHUTDOWN':
+                        self.msgList['state'] = 'normal'
+                        self.__client.closeClient()
+                        self.msgList.insert(END, "Server is down, you can close the program, and come back later")
+                        self.msgList['state'] = 'disabled'
+
     def __setUsrTime(self, timeStr):
-        if timeStr != None:
+        if timeStr is not None:
             msg = timeStr.split(';')
             self.labelLastOnlineTime['text'] = '上次登录时间\n'.decode('utf-8') + msg[0]
             self.labelTotalOnlineTime['text'] = '总共在线时间\n'.decode('utf-8') + msg[1]
@@ -286,7 +329,8 @@ class Dialog(Tk):
         self.text_label_msgDisplay = Label(self, justify=LEFT, text=u"""消息列表""")
         self.text_label_usrName = Label(self, justify=LEFT, text=self.__usrName)
 
-        self.msgList = ScrolledText(self.frmTop, borderwidth=1, highlightthickness=0, relief='flat', bg='#fffff0')
+        self.msgList = ScrolledText(self.frmTop, borderwidth=1, highlightthickness=0, relief='flat', bg='#fffff0',
+                                    state=DISABLED)
         self.msgList.tag_config('userColor', foreground='red')
         self.msgList.place(x=0, y=0, width=380, height=250)
 
@@ -323,36 +367,47 @@ class Dialog(Tk):
         self.frmBtm.grid_propagate(0)
         self.frmRight.grid_propagate(0)
 
-        for x in range(0, 10):
-            self.userList.insert(END, str(x + 100))
+        # for x in range(2, 10):
+        #     self.userList.insert(END, str(x + 100))
 
     def __privateChatCmd(self):
         sel = self.userList.curselection()
-        usrName = self.userList.get(sel)
-        pr = PrivateRoom(self.__usrName, usrName)
+        friendUsrName = self.userList.get(sel)
+        pr = PrivateRoom(self.__usrName, friendUsrName, self.__client, self)
+        self.__privateRooms[friendUsrName] = pr
+        # print 'private rooms', self.__privateRooms
         pr.mainloop()
-        print usrName
 
+    def closePrivateChatRoom(self, friendUsrname):
+        if self.__privateRooms.has_key(friendUsrname):
+            self.__privateRooms.__delitem__(friendUsrname)
+        # print 'private rooms', self.__privateRooms
 
 class PrivateRoom(Tk):
-    friendUsrName = None
-    myUsrName = None
+    __client = None
+    __friendUsrName = None
+    __usrName = None
 
-    def __init__(self, mn, fn):
+    __mainFrm = None
+
+    def __init__(self, mn, fn, client, mfm):
         Tk.__init__(self)
 
         self['background'] = 'grey'
 
-        # self.protocol('WM_DELETE_WINDOW', self.closeDialog)
-        self.myUsrName = mn
+        self.protocol('WM_DELETE_WINDOW', self.closeRoom)
+        self.__usrName = mn
 
         self.title(u"与" + fn + u"私聊")
-        self.friendUsrName = fn
+        self.__friendUsrName = fn
 
         self.configureUI()
+        self.__client = client
+        self.__mainFrm = mfm
 
-    def closeDialog(self):
-        pass
+    def closeRoom(self):
+        self.__mainFrm.closePrivateChatRoom(self.__friendUsrName)
+        self.destroy()
 
     def configureUI(self):
         # main window
@@ -367,7 +422,7 @@ class PrivateRoom(Tk):
         self.frmBtm['bg'] = bgColor
 
         self.text_label_msgDisplay = Label(self, justify=LEFT, text=u"""消息列表""")
-        self.text_label_usrName = Label(self, justify=LEFT, text=self.myUsrName)
+        self.text_label_usrName = Label(self, justify=LEFT, text=self.__usrName)
 
         self.msgList = ScrolledText(self.frmTop, borderwidth=1, highlightthickness=0, relief='flat', bg='#fffff0')
         self.msgList.tag_config('userColor', foreground='red')
@@ -390,7 +445,24 @@ class PrivateRoom(Tk):
         self.frmBtm.grid_propagate(0)
 
     def __sendMsgBtn(self):
-        pass
+        self.msgList['state'] = 'normal'
+        self.msgList.insert(END, self.__usrName + ': ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + '\n ',
+                            'userColor')
+        usrMsg = self.msg.get('0.0', END)
+        self.msgList.insert(END, usrMsg)
+        self.msgList['state'] = 'disabled'
+        self.msg.delete('0.0', END)
+        data = packagePrivateChatMsg(self.__friendUsrName, usrMsg)
+        self.__client.appendToMsgSendingQueue(data)
+
+    def appendMsgToMsgList(self, msg):
+        self.msgList['state'] = 'normal'
+        self.msgList.insert(END, self.__usrName + ': ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + '\n ',
+                            'userColor')
+        self.msgList.insert(END, msg)
+        print msg
+        self.msgList['state'] = 'disabled'
+
 
 def myHandler(signum, frame):
     print('I received: ', signum)
