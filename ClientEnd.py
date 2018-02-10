@@ -32,7 +32,7 @@ class Client:
     __msgHeaderSize = 13
 
     def __init__(self):
-        self.host = '192.168.1.6'#socket.gethostname()
+        self.host = socket.gethostname()
         self.clientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__dataBufMutexLock = threading.Lock()
 
@@ -111,11 +111,15 @@ class Client:
 
                 msgStartIndex = self.__dataBuffer.find('msgHeader')
 
-                if msgStartIndex > 0:
-                    print("there might be error in data buffer")
+                if msgStartIndex == -1:
+                    continue
+
+                # if msgStartIndex > 0:
+                #     print("there might be error in data buffer")
 
                 msgHeaderEndIndex = msgStartIndex + self.__msgHeaderSize
                 msgHeader = self.__dataBuffer[msgStartIndex:msgHeaderEndIndex]
+                print msgHeader
                 headPack = struct.unpack('!9sI', msgHeader)
                 msgBodySize = headPack[1]
                 msgBodyEndIndex = msgHeaderEndIndex + msgBodySize
