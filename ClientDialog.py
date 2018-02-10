@@ -291,17 +291,21 @@ class Dialog(Tk):
                         self.__setUsrTime(v)
 
                     if k == 'SysAllOnlineClientsAck':
+                        print "SysAllOnlineClientsAck", self.userList.size(), v
                         if v.keys()[0] == 'allOnlineUsernames':
-                            allCurrentUsers = self.userList.get(0, self.userList.size() - 1)
+                            allCurrentUsers = self.userList.get(0, self.userList.size())
                             for e in v.values()[0]:
                                 if e != self.__usrName and e not in allCurrentUsers:
                                     self.userList.insert(END, e)
 
+                    # other user login
                     if k == 'SysUsrLogin' and v != self.__usrName:
-                        allCurrentUsers = self.userList.get(0, self.userList.size() - 1)
+                        print 'SysUsrLogin', self.userList.size(), v
+                        allCurrentUsers = self.userList.get(0, self.userList.size())
                         if v not in allCurrentUsers:
                             self.userList.insert(END, v)
 
+                    #other user log out
                     if k == 'SysUsrLogOut' and v != self.__usrName:
                         for i in range(0, self.userList.size()):
                             if v == self.userList.get(i):

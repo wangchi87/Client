@@ -6,6 +6,7 @@ import time
 
 from SocketWrapper import *
 
+heatBeatInterval = 3
 
 class Client:
 
@@ -31,7 +32,7 @@ class Client:
     __msgHeaderSize = 13
 
     def __init__(self):
-        self.host = '127.0.0.1'#socket.gethostname()
+        self.host = '192.168.1.6'#socket.gethostname()
         self.clientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__dataBufMutexLock = threading.Lock()
 
@@ -179,7 +180,7 @@ class Client:
         '''
         while self.__isSocketAlive:
             self.__safeSocketSend("-^-^-pyHB-^-^-")
-            time.sleep(2)
+            time.sleep(heatBeatInterval)
 
     def __safeSocketSend(self, msg):
         if not socketSend(self.clientSock, msg):
