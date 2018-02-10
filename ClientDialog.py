@@ -168,6 +168,7 @@ class Dialog(Tk):
     __sysMsgThread = None
     __chatMsgThread = None
 
+    # manage private rooms, KEY is usrname, value is the handle of room object
     __privateRooms = {}
 
     def __init__(self):
@@ -216,13 +217,8 @@ class Dialog(Tk):
         print self.__usrName
 
     def __sendMsgBtn(self):
-
-        self.msgList['state'] = 'normal'
-        self.msgList.insert(END, self.__usrName + ': ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + '\n ',
-                            'userColor')
         usrMsg = self.msg.get('0.0', END)
-        self.msgList.insert(END, usrMsg)
-        self.msgList['state'] = 'disabled'
+        self.__displayNewMsg(self.__usrName, usrMsg, 'userColor')
         self.msg.delete('0.0', END)
         data = packagePublicChatMsg(usrMsg)
         self.__client.appendToMsgSendingQueue(data)
@@ -231,39 +227,50 @@ class Dialog(Tk):
         self.__client.closeClient()
         self.destroy()
 
+        for pr in self.__privateRooms.values():
+            pr.closeRoom()
+
     def __processChatMsg(self):
         while self.__client.isSocketAlive() and self.hasAlreadyLoggedIn():
             time.sleep(0.1)
             msgDict = self.__client.popChatMsgFromQueue()
             if msgDict is not None:
-                self.msgList['state'] = 'normal'
                 print msgDict
                 for k, v in msgDict.items():
+                    # k is the msg sender usrname or 'toAll'
+                    # v is the msg
                     if k == 'toAll':
                         msg = v
-                        seperator = msg.find(': ')
-                        usr = msg[0:seperator + 1]
-                        usrMsg = msg[seperator + 1:]
-                        usr = usr + time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
-                        self.msgList.insert(END, usr + usrMsg)
+                        sepIndex = msg.find(': ')
+                        usr = msg[0: sepIndex]
+                        usrMsg = msg[sepIndex + 1:]
+                        self.__displayNewMsg(usr, usrMsg)
                     else:
                         # print k, v
                         # privateRoom = None
                         # if self.__privateRooms.has_key(k):
                         #     privateRoom = self.__privateRooms[k]
                         # else:
-                        #     privateRoom = PrivateRoom(self.__usrName, k, self.__client, self)
-                        #     prt = threading.Thread(target=privateRoom.mainloop)
-                        #     prt.setDaemon(True)
-                        #     prt.start()
+                        # privateRoom = PrivateRoom(self.__usrName, k, self.__client, self)
+                        # prt = threading.Thread(target=privateRoom.mainloop)
+                        # prt.setDaemon(True)
+                        # prt.start()
                         #     self.__privateRooms[k] = privateRoom
                         # print privateRoom
                         # privateRoom.appendMsgToMsgList(v)
-                        self.msgList.insert(END, v)
+                        # self.msgList.insert(END, k +'(private msg) : '+ msgTime + v)
+                        self.__displayNewMsg(k + "(private msg)", v)
                         pass
-                self.msgList['state'] = 'disabled'
+
 
         print 'end of displaying chat msg thread'
+
+    def __displayNewMsg(self, usrname, msg, config=''):
+        # append msg to list component
+        self.msgList['state'] = 'normal'
+        msgTime = time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
+        self.msgList.insert(END, usrname + ': ' + msgTime + msg, config)
+        self.msgList['state'] = 'disabled'
 
     def queryAllOnlineClients(self):
         keyMsg = "SysAllOnlineClientsRequest"
@@ -301,16 +308,29 @@ class Dialog(Tk):
                                 self.userList.delete(i)
 
                     if k == 'SERVER_SHUTDOWN':
-                        self.msgList['state'] = 'normal'
                         self.__client.closeClient()
-                        self.msgList.insert(END, "Server is down, you can close the program, and come back later")
-                        self.msgList['state'] = 'disabled'
+                        self.__displayNewMsg('SysMsg', "Server is down, you can close the program, and come back later")
 
     def __setUsrTime(self, timeStr):
         if timeStr is not None:
             msg = timeStr.split(';')
             self.labelLastOnlineTime['text'] = '上次登录时间\n'.decode('utf-8') + msg[0]
             self.labelTotalOnlineTime['text'] = '总共在线时间\n'.decode('utf-8') + msg[1]
+
+    def __privateChatCmd(self):
+        sel = self.userList.curselection()
+        if sel.__len__() > 0:
+            friendUsrName = self.userList.get(sel)
+            pr = PrivateRoom(self.__usrName, friendUsrName, self.__client, self)
+            self.__privateRooms[friendUsrName] = pr
+            pr.mainloop()
+        else:
+            print 'please select a user'
+
+    def closePrivateChatRoom(self, friendUsrname):
+        if self.__privateRooms.has_key(friendUsrname):
+            self.__privateRooms.__delitem__(friendUsrname)
+        # print 'private rooms', self.__privateRooms
 
     def configureUI(self):
         # main window
@@ -367,21 +387,7 @@ class Dialog(Tk):
         self.frmBtm.grid_propagate(0)
         self.frmRight.grid_propagate(0)
 
-        # for x in range(2, 10):
-        #     self.userList.insert(END, str(x + 100))
 
-    def __privateChatCmd(self):
-        sel = self.userList.curselection()
-        friendUsrName = self.userList.get(sel)
-        pr = PrivateRoom(self.__usrName, friendUsrName, self.__client, self)
-        self.__privateRooms[friendUsrName] = pr
-        # print 'private rooms', self.__privateRooms
-        pr.mainloop()
-
-    def closePrivateChatRoom(self, friendUsrname):
-        if self.__privateRooms.has_key(friendUsrname):
-            self.__privateRooms.__delitem__(friendUsrname)
-        # print 'private rooms', self.__privateRooms
 
 class PrivateRoom(Tk):
     __client = None
@@ -445,24 +451,19 @@ class PrivateRoom(Tk):
         self.frmBtm.grid_propagate(0)
 
     def __sendMsgBtn(self):
-        self.msgList['state'] = 'normal'
-        self.msgList.insert(END, self.__usrName + ': ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + '\n ',
-                            'userColor')
         usrMsg = self.msg.get('0.0', END)
-        self.msgList.insert(END, usrMsg)
-        self.msgList['state'] = 'disabled'
+        self.__displayNewMsg(self.__usrName, usrMsg, 'userColor')
         self.msg.delete('0.0', END)
+        # data = packagePublicChatMsg(usrMsg)
+        # self.__client.appendToMsgSendingQueue(data)
         data = packagePrivateChatMsg(self.__friendUsrName, usrMsg)
         self.__client.appendToMsgSendingQueue(data)
 
-    def appendMsgToMsgList(self, msg):
+    def __displayNewMsg(self, usrname, msg, config=''):
         self.msgList['state'] = 'normal'
-        self.msgList.insert(END, self.__usrName + ': ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + '\n ',
-                            'userColor')
-        self.msgList.insert(END, msg)
-        print msg
+        msgTime = time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
+        self.msgList.insert(END, usrname + ': ' + msgTime + msg, config)
         self.msgList['state'] = 'disabled'
-
 
 def myHandler(signum, frame):
     print('I received: ', signum)

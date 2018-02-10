@@ -18,7 +18,9 @@ def packageSysMsg(key, msg):
     return json.dumps(rtnStr)
 
 
-def packagePrivateChatMsg(usrnameToSend, msg):
+def packagePrivateChatMsg(usrname, msg):
+    # at server end, usrname indicates the name of receiver.
+    # at cliend end, usrname indicates the name of sender
     rtnStr = {}
-    rtnStr['ChatMsg'] = {usrnameToSend: msg}
+    rtnStr['ChatMsg'] = {usrname: msg}
     return json.dumps(rtnStr)

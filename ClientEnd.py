@@ -154,7 +154,7 @@ class Client:
                 # print k, v
                 if k == 'ChatMsg':
                     # v will be a dict {'toAll': msg} or {'XXX': msg}
-                    print v
+                    # print v
                     self.__chatMsgRecved.append(v)
                 elif k == 'SysMsg':
                     # v will be a dict, like {'SysLoginRequestAck': 'xxx'} or {'allUsernames': {}}
@@ -179,7 +179,7 @@ class Client:
         '''
         while self.__isSocketAlive:
             self.__safeSocketSend("-^-^-pyHB-^-^-")
-            time.sleep(1000)
+            time.sleep(2)
 
     def __safeSocketSend(self, msg):
         if not socketSend(self.clientSock, msg):
