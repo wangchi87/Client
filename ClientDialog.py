@@ -213,7 +213,7 @@ class Dialog(Tk):
 
     def setUsrName(self, myStr):
         self.__usrName = myStr
-        self.text_label_usrName['text'] = myStr
+        self.textLabelUsrName['text'] = myStr
         print self.__usrName
 
     def __sendMsgBtn(self):
@@ -336,6 +336,12 @@ class Dialog(Tk):
             self.__privateRooms.__delitem__(friendUsrname)
         # print 'private rooms', self.__privateRooms
 
+    def __creatRoomCmd(self):
+        pass
+
+    def __enterRoomCmd(self):
+        pass
+
     def configureUI(self):
         # main window
         bgColor = '#208090'
@@ -350,8 +356,9 @@ class Dialog(Tk):
         self.frmBtm['bg'] = bgColor
         self.frmRight['bg'] = bgColor
 
-        self.text_label_msgDisplay = Label(self, justify=LEFT, text=u"""消息列表""")
-        self.text_label_usrName = Label(self, justify=LEFT, text=self.__usrName)
+        # message zone
+        self.textLabelMsgDisplay = Label(self, justify=LEFT, text=u"""消息列表""")
+        self.textLabelUsrName = Label(self, justify=LEFT, text=self.__usrName)
 
         self.msgList = ScrolledText(self.frmTop, borderwidth=1, highlightthickness=0, relief='flat', bg='#fffff0',
                                     state=DISABLED)
@@ -361,31 +368,39 @@ class Dialog(Tk):
         self.msg = ScrolledText(self.frmMid)
         self.msg.grid(row=0, column=0)
 
-        self.sendBtn = Button(self.frmBtm, text='发送消息', command=self.__sendMsgBtn)
-        # self.sendBtn.bind('<Button-2>', self.BtnCommand2)
+        # buttons
+        self.sendBtn = Button(self.frmBtm, text='发送消息', background='grey', command=self.__sendMsgBtn)
+        self.pvtChatBtn = Button(self.frmRight, text='私聊', background='grey',command=self.__privateChatCmd)
+        self.creatRoomBtn = Button(self.frmRight, text='创建房间',background='grey', command=self.__creatRoomCmd)
+        self.enterRoomBtn = Button(self.frmRight, text='进入房间',background='grey',command=self.__enterRoomCmd)
 
-        self.pvtChatBtn = Button(self.frmRight, text='私聊', command=self.__privateChatCmd)
+        self.labelLastOnlineTime = Label(self.frmRight, text='  上次登录时间  \n')
+        self.labelTotalOnlineTime = Label(self.frmRight, text=' 总共在线时间  \n')
 
-        self.labelLastOnlineTime = Label(self.frmRight, text='         上次登录时间         \n')
-        self.labelTotalOnlineTime = Label(self.frmRight, text='        总共在线时间         \n')
-
+        self.textLabelOnlineUsers = Label(self.frmRight, justify=LEFT, text=u"""其他在线用户""")
         self.userListStr = StringVar()
         self.userList = Listbox(self.frmRight, borderwidth=1, highlightthickness=0, relief='flat', bg='#ededed',
                                 listvariable=self.userListStr)
 
-        self.text_label_msgDisplay.grid(row=0, column=0, padx=2, pady=2, sticky=W)
+        # layout
+        self.textLabelMsgDisplay.grid(row=0, column=0, padx=2, pady=2, sticky=W)
         self.frmTop.grid(row=1, column=0, padx=2, pady=2)
-        self.text_label_usrName.grid(row=2, column=0, padx=2, pady=2, sticky=W)
+        self.textLabelUsrName.grid(row=2, column=0, padx=2, pady=2, sticky=W)
         self.frmMid.grid(row=3, column=0, padx=2, pady=2, )
         self.frmBtm.grid(row=4, column=0, padx=2, pady=2, )
         self.frmRight.grid(row=0, column=1, rowspan=5, sticky=N + S)
 
         self.sendBtn.grid()
 
-        self.labelLastOnlineTime.grid(row=0, column=0, pady='10m', sticky=E)
-        self.labelTotalOnlineTime.grid(row=1, column=0, pady='5m', sticky=E)
-        self.userList.place(x=7, y=308, width=150, height=250)
-        self.pvtChatBtn.place(x=7, y=560, width=90, height=25)
+        # right frame layout
+        self.labelLastOnlineTime.place(x=30, y=30, width=120, height=50)
+        self.labelTotalOnlineTime.place(x=30, y=90, width=120, height=50)
+        self.creatRoomBtn.place(x=30, y=160, width=120, height=30)
+        self.enterRoomBtn.place(x=30, y=200, width=120, height=30)
+        self.textLabelOnlineUsers.place(x=30, y=260, width=120, height=30)
+        self.userList.place(x=7, y=311, width=150, height=250)
+        self.pvtChatBtn.place(x=7, y=565, width=90, height=30)
+
         self.frmTop.grid_propagate(0)
         self.frmMid.grid_propagate(0)
         self.frmBtm.grid_propagate(0)
