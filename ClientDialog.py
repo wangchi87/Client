@@ -1,12 +1,7 @@
 # -*- coding: UTF-8 -*-
 
-import signal
-from ScrolledText import ScrolledText
-from Tkinter import *
-
 from ClientEnd import *
-from Utilities import *
-
+from Room import *
 
 # login window
 class LoginWindow(Toplevel):
@@ -21,7 +16,7 @@ class LoginWindow(Toplevel):
     def __init__(self, mainFrm, client):
         Toplevel.__init__(self)
         self.mainFrm = mainFrm
-        self.title(u'登录窗口')
+
 
         self.configureUI()
 
@@ -29,6 +24,7 @@ class LoginWindow(Toplevel):
         self.protocol('WM_DELETE_WINDOW', self.closeDialog)
 
     def configureUI(self):
+        self.title(u'登录窗口')
         logFrmPos = '%dx%d+%d+%d' % (325, 330, (1500 - 400) / 2, (900 - 300) / 2)
         self.geometry(logFrmPos)
         self.resizable(width=True, height=True)
@@ -340,7 +336,8 @@ class Dialog(Tk):
         # print 'private rooms', self.__privateRooms
 
     def __creatRoomCmd(self):
-        pass
+        crg = CreateRoomGUI(self.__client)
+        crg.mainloop()
 
     def __enterRoomCmd(self):
         pass
@@ -410,151 +407,7 @@ class Dialog(Tk):
         self.frmRight.grid_propagate(0)
 
 
-
-class PrivateRoom(Tk):
-    __client = None
-    __friendUsrName = None
-    __usrName = None
-
-    __mainFrm = None
-
-    def __init__(self, mn, fn, client, mfm):
-        Tk.__init__(self)
-
-        self['background'] = 'grey'
-
-        self.protocol('WM_DELETE_WINDOW', self.closeRoom)
-        self.__usrName = mn
-
-        self.title(u"与" + fn + u"私聊")
-        self.__friendUsrName = fn
-
-        self.configureUI()
-        self.__client = client
-        self.__mainFrm = mfm
-
-    def closeRoom(self):
-        self.__mainFrm.closePrivateChatRoom(self.__friendUsrName)
-        self.destroy()
-
-    def configureUI(self):
-        # main window
-        bgColor = '#208090'
-        self['bg'] = bgColor
-        self.geometry("400x500+520+500")
-        self.resizable(width=True, height=True)
-
-        self.frmTop = Frame(self, width=380, height=250)
-        self.frmMid = Frame(self, width=380, height=150)
-        self.frmBtm = Frame(self, width=380, height=30)
-        self.frmBtm['bg'] = bgColor
-
-        self.text_label_msgDisplay = Label(self, justify=LEFT, text=u"""消息列表""")
-        self.text_label_usrName = Label(self, justify=LEFT, text=self.__usrName)
-
-        self.msgList = ScrolledText(self.frmTop, borderwidth=1, highlightthickness=0, relief='flat', bg='#fffff0')
-        self.msgList.tag_config('userColor', foreground='red')
-        self.msgList.place(x=0, y=0, width=380, height=250)
-
-        self.msg = ScrolledText(self.frmMid)
-        self.msg.grid(row=0, column=0)
-
-        self.sendBtn = Button(self.frmBtm, text='发送消息', command=self.__sendMsgBtn)
-        self.sendBtn.grid()
-
-        self.text_label_msgDisplay.grid(row=0, column=0, padx=2, pady=2, sticky=W)
-        self.frmTop.grid(row=1, column=0, padx=2, pady=2)
-        self.text_label_usrName.grid(row=2, column=0, padx=2, pady=2, sticky=W)
-        self.frmMid.grid(row=3, column=0, padx=2, pady=2, )
-        self.frmBtm.grid(row=4, column=0, padx=2, pady=2, )
-
-        self.frmTop.grid_propagate(0)
-        self.frmMid.grid_propagate(0)
-        self.frmBtm.grid_propagate(0)
-
-    def __sendMsgBtn(self):
-        usrMsg = self.msg.get('0.0', END)
-        self.__displayNewMsg(self.__usrName, usrMsg, 'userColor')
-        self.msg.delete('0.0', END)
-        # data = packagePublicChatMsg(usrMsg)
-        # self.__client.appendToMsgSendingQueue(data)
-        data = packagePrivateChatMsg(self.__usrName, self.__friendUsrName, usrMsg)
-        self.__client.appendToMsgSendingQueue(data)
-
-    def __displayNewMsg(self, usrname, msg, config=''):
-        self.msgList['state'] = 'normal'
-        msgTime = time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
-        self.msgList.insert(END, usrname + ': ' + msgTime + msg, config)
-        self.msgList['state'] = 'disabled'
-
-def myHandler(signum, frame):
-    print('I received: ', signum)
-
-
 if __name__ == "__main__":
 
-    # 当用右上角方框直接中断程序的时候，会出现SIGKILL信号
-    # 在这种情况下，会向socket发送空字符串
-    signal.signal(signal.SIGABRT, myHandler)
-    signal.signal(signal.SIGINT, myHandler)
-
     d = Dialog()
-    # try:
-    #     d.mainloop()
-    # except Exception as e:
-    #     print e, 'xxx'
 
-
-
-
-
-'''
-root = Tk()
-root.title('Talking')
-
-
-# 发送按钮事件
-def sendmessage():
-    # 在聊天内容上方加一行 显示发送人及发送时间
-    msgcontent = '我: ' + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()) + '\n '
-    text_msglist.insert(END, msgcontent, 'green')
-    text_msglist.insert(END, text_msg.get('0.0', END))
-    text_msg.delete('0.0', END)
-
-
-# 创建几个frame作为容器
-frame_left_top = Frame(width=380, height=250, bg='red')
-frame_left_center = Frame(width=380, height=90, bg='black')
-frame_left_center2 = Frame(width=380, height=90)
-frame_left_bottom = Frame(width=380, height=20)
-frame_left_bottom2 = Frame(width=380, height=20)
-frame_right = Frame(width=170, height=400, bg='yellow')
-
-##创建需要的几个元素
-text_msglist = Text(frame_left_top, width=380, height=220)
-text_msg = Text(frame_left_center, width=380, height=80)
-button_sendmsg = Button(frame_left_bottom, text=u'发送', command=sendmessage,bg='purple')
-button2 = Button(frame_left_bottom2, text = 'test')
-button2.pack()
-
-# 创建一个绿色的tag
-text_msglist.tag_config('green', foreground='#008B00')
-
-# 使用grid设置各个容器位置
-frame_left_top.grid(row=0, column=0, padx=2, pady=5)
-frame_left_center.grid(row=1, column=0, padx=2, pady=5)
-frame_left_bottom.grid(row=2, column=0)
-frame_left_bottom.grid(row=3, column=0)
-frame_right.grid(row=0, column=1, rowspan=3, padx=4, pady=5)
-frame_left_top.grid_propagate(0)
-frame_left_center.grid_propagate(0)
-frame_left_bottom.grid_propagate(0)
-frame_left_bottom2.grid_propagate(0)
-
-# 把元素填充进frame
-text_msglist.grid()
-text_msg.grid()
-button_sendmsg.grid(sticky=E)
-'''
-# 主事件循环
-#root.mainloop()
