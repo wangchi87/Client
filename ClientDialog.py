@@ -163,10 +163,13 @@ class Dialog(Tk):
     __chatMsgThread = None
 
     # manage private rooms, KEY is usrname, value is the handle of room object
-    __privateRooms = {}
+    __privateRoomLists = {}
 
     # key room name, value room object
     __roomLists = {}
+
+    __createRoomWin = None
+    __enterRoomWin = None
 
     def __init__(self):
         Tk.__init__(self)
@@ -224,7 +227,7 @@ class Dialog(Tk):
         self.__client.closeClient()
         self.destroy()
 
-        for pr in self.__privateRooms.values():
+        for pr in self.__privateRoomLists.values():
             pr.closeRoom()
 
     def __processChatMsg(self):
@@ -234,28 +237,16 @@ class Dialog(Tk):
             if msgDict is not None:
                 print msgDict
                 for k, v in msgDict.items():
+
                     # k is the msg type: 'toAll', 'toClient' or 'toRoom'
                     if k == 'toAll':
                         # v is like [sender, msg]
                         usr = v[0]
                         usrMsg = v[1]
                         self.__displayNewMsg(usr, usrMsg)
+
                     elif k == 'toClient' and v[1] == self.__usrName:
-
                         print k, v
-                        # privateRoom = None
-                        # if self.__privateRooms.has_key(k):
-                        #     privateRoom = self.__privateRooms[k]
-                        # else:
-                        # privateRoom = PrivateRoom(self.__usrName, k, self.__client, self)
-                        # prt = threading.Thread(target=privateRoom.mainloop)
-                        # prt.setDaemon(True)
-                        # prt.start()
-                        #     self.__privateRooms[k] = privateRoom
-                        # print privateRoom
-                        # privateRoom.appendMsgToMsgList(v)
-                        # self.msgList.insert(END, k +'(private msg) : '+ msgTime + v)
-
                         # v is like [sender, receiver, msg]
                         sender = v[0]
                         prvtMsg = v[2]
@@ -285,61 +276,64 @@ class Dialog(Tk):
             if sysMsg is None:
                 time.sleep(0.2)
             else:
-                # print 'sysMsg: ', sysMsg
-                for k, v in sysMsg.items():
-                    if k == 'SysUsrOnlineDurationMsg':
-                        self.__setUsrTime(v)
+                self.__analyseSysMsg(sysMsg)
 
-                    if k == 'SysAllOnlineClientsAck':
-                        # print "SysAllOnlineClientsAck", self.userList.size(), v
-                        if v.keys()[0] == 'allOnlineUsernames':
-                            allCurrentUsers = self.userList.get(0, self.userList.size())
-                            for e in v.values()[0]:
-                                if e != self.__usrName and e not in allCurrentUsers:
-                                    self.userList.insert(END, e)
+    def __analyseSysMsg(self, sysMsg):
+        # print 'sysMsg: ', sysMsg
+        for k, v in sysMsg.items():
+            if k == 'SysUsrOnlineDurationMsg':
+                self.__setUsrTime(v)
 
-                    # other user login
-                    if k == 'SysUsrLogin' and v != self.__usrName:
-                        print 'SysUsrLogin', self.userList.size(), v
-                        allCurrentUsers = self.userList.get(0, self.userList.size())
-                        if v not in allCurrentUsers:
-                            self.userList.insert(END, v)
+            if k == 'SysAllOnlineClientsAck':
+                # print "SysAllOnlineClientsAck", self.userList.size(), v
+                if v.keys()[0] == 'allOnlineUsernames':
+                    allCurrentUsers = self.userList.get(0, self.userList.size())
+                    for e in v.values()[0]:
+                        if e != self.__usrName and e not in allCurrentUsers:
+                            self.userList.insert(END, e)
 
-                    #other user log out
-                    if k == 'SysUsrLogOut' and v != self.__usrName:
-                        for i in range(0, self.userList.size()):
-                            if v == self.userList.get(i):
-                                self.userList.delete(i)
+            # other user login
+            if k == 'SysUsrLogin' and v != self.__usrName:
+                print 'SysUsrLogin', self.userList.size(), v
+                allCurrentUsers = self.userList.get(0, self.userList.size())
+                if v not in allCurrentUsers:
+                    self.userList.insert(END, v)
 
-                    if k == "SysCreateRoomAck":
-                        roomName = v.keys()[0]
-                        msg = v.values()[0]
+            # other user log out
+            if k == 'SysUsrLogOut' and v != self.__usrName:
+                for i in range(0, self.userList.size()):
+                    if v == self.userList.get(i):
+                        self.userList.delete(i)
 
-                        print 'room list', self.__roomLists
+            if k == "SysCreateRoomAck":
+                roomName = v.keys()[0]
+                msg = v.values()[0]
 
-                        if msg == 'Successful Room Creation':
-                            self.__roomLists[roomName].showRoom()
+                # print 'room list', self.__roomLists
+                self.__createRoomWin.withdraw()
+                if msg == 'Successful Room Creation':
+                    self.__roomLists[roomName].showRoom()
 
-                        elif msg == 'Room already exists':
-                            self.__roomLists[roomName].withdraw()
+                elif msg == 'Room already exists':
+                    self.__roomLists[roomName].showRoom()
 
-                    if k == 'SysEnterRoomAck':
-                        roomName = v.keys()[0]
-                        msg = v.values()[0]
-                        print 'room list', self.__roomLists
+            if k == 'SysEnterRoomAck':
+                roomName = v.keys()[0]
+                msg = v.values()[0]
+                # print 'room list', self.__roomLists
+                self.__enterRoomWin.withdraw()
+                if msg == 'Successfully Enter The Room':
+                    self.__roomLists[roomName].showRoom()
+                elif msg == 'Already In The Room':
+                    self.__roomLists[roomName].showRoom()
+                elif msg == 'Room Not Exists':
+                    pass
 
-                        if msg == 'Successfully Enter The Room':
-                            self.__roomLists[roomName].showRoom()
-                        elif msg == 'Already In The Room':
-                            pass
-                        elif msg == 'Room Not Exists':
-                            pass
+                pass
 
-                        pass
-
-                    if k == 'SERVER_SHUTDOWN':
-                        self.__client.closeClient()
-                        self.__displayNewMsg('SysMsg', "Server is down, you can close the program, and come back later")
+            if k == 'SERVER_SHUTDOWN':
+                self.__client.closeClient()
+                self.__displayNewMsg('SysMsg', "Server is down, you can close the program, and come back later")
 
     def __setUsrTime(self, timeStr):
         if timeStr is not None:
@@ -363,14 +357,20 @@ class Dialog(Tk):
         # print 'private rooms', self.__privateRooms
 
     def __creatRoomCmd(self):
-        crg = CreateRoomGUI(self.__client, self.__usrName, self)
-
-        crg.mainloop()
+        if not self.__createRoomWin:
+            self.__createRoomWin = CreateRoomGUI(self.__client, self.__usrName, self)
+            self.__createRoomWin.mainloop()
+        else:
+            print 'call old create room'
+            self.__createRoomWin.deiconify()
 
     def __enterRoomCmd(self):
-        er = EnterRoomGUI(self.__client, self.__usrName, self)
-
-        er.mainloop()
+        if not self.__enterRoomWin:
+            self.__enterRoomWin = EnterRoomGUI(self.__client, self.__usrName, self)
+            self.__enterRoomWin.mainloop()
+        else:
+            print 'call old enter room'
+            self.__enterRoomWin.deiconify()
 
     def addNewRoom(self, roomName, room):
         if not self.__roomLists.has_key(roomName):

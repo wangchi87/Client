@@ -6,7 +6,7 @@ import time
 
 from SocketWrapper import *
 
-heatBeatInterval = 3
+heatBeatInterval = 300
 
 class Client:
 
