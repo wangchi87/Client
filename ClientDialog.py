@@ -16,8 +16,6 @@ class LoginWindow(Toplevel):
     def __init__(self, mainFrm, client):
         Toplevel.__init__(self)
         self.mainFrm = mainFrm
-
-
         self.configureUI()
 
         self.__client = client
@@ -167,6 +165,9 @@ class Dialog(Tk):
     # manage private rooms, KEY is usrname, value is the handle of room object
     __privateRooms = {}
 
+    # key room name, value room object
+    __roomLists = {}
+
     def __init__(self):
         Tk.__init__(self)
         self.title(u"聊天大厅")
@@ -290,7 +291,7 @@ class Dialog(Tk):
                         self.__setUsrTime(v)
 
                     if k == 'SysAllOnlineClientsAck':
-                        print "SysAllOnlineClientsAck", self.userList.size(), v
+                        # print "SysAllOnlineClientsAck", self.userList.size(), v
                         if v.keys()[0] == 'allOnlineUsernames':
                             allCurrentUsers = self.userList.get(0, self.userList.size())
                             for e in v.values()[0]:
@@ -309,6 +310,32 @@ class Dialog(Tk):
                         for i in range(0, self.userList.size()):
                             if v == self.userList.get(i):
                                 self.userList.delete(i)
+
+                    if k == "SysCreateRoomAck":
+                        roomName = v.keys()[0]
+                        msg = v.values()[0]
+
+                        print 'room list', self.__roomLists
+
+                        if msg == 'Successful Room Creation':
+                            self.__roomLists[roomName].showRoom()
+
+                        elif msg == 'Room already exists':
+                            self.__roomLists[roomName].withdraw()
+
+                    if k == 'SysEnterRoomAck':
+                        roomName = v.keys()[0]
+                        msg = v.values()[0]
+                        print 'room list', self.__roomLists
+
+                        if msg == 'Successfully Enter The Room':
+                            self.__roomLists[roomName].showRoom()
+                        elif msg == 'Already In The Room':
+                            pass
+                        elif msg == 'Room Not Exists':
+                            pass
+
+                        pass
 
                     if k == 'SERVER_SHUTDOWN':
                         self.__client.closeClient()
@@ -336,11 +363,19 @@ class Dialog(Tk):
         # print 'private rooms', self.__privateRooms
 
     def __creatRoomCmd(self):
-        crg = CreateRoomGUI(self.__client)
+        crg = CreateRoomGUI(self.__client, self.__usrName, self)
+
         crg.mainloop()
 
     def __enterRoomCmd(self):
-        pass
+        er = EnterRoomGUI(self.__client, self.__usrName, self)
+
+        er.mainloop()
+
+    def addNewRoom(self, roomName, room):
+        if not self.__roomLists.has_key(roomName):
+            self.__roomLists[roomName] = room
+        print 'room list', self.__roomLists
 
     def configureUI(self):
         # main window
