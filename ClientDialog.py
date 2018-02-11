@@ -1,7 +1,10 @@
 # -*- coding: UTF-8 -*-
 
+import signal
+
 from ClientEnd import *
 from Room import *
+
 
 # login window
 class LoginWindow(Toplevel):
@@ -165,7 +168,8 @@ class Dialog(Tk):
     # manage private rooms, KEY is usrname, value is the handle of room object
     __privateRoomLists = {}
 
-    # key room name, value room object
+    # roomLists maintain the rooms the client are in or created
+    # key is room name, value is the handle of room object
     __roomLists = {}
 
     __createRoomWin = None
@@ -249,22 +253,18 @@ class Dialog(Tk):
                         self.__displayNewMsg(usr, usrMsg)
 
                     elif k == 'toClient' and v[1] == self.__usrName:
-                        # print k, v
                         # v is like [sender, receiver, msg]
                         sender = v[0]
                         prvtMsg = v[2]
                         self.__displayNewMsg(sender + " (private msg)", prvtMsg)
 
                     elif k == 'toRoom':
-                        print k, v
                         sender = v[0]
                         roomName = v[1]
                         roomMsg = v[2]
 
                         roomWin = self.__roomLists[roomName]
                         roomWin.displayNewMsg(sender, roomMsg)
-
-                        pass
 
         print 'end of displaying chat msg thread'
 
@@ -297,7 +297,7 @@ class Dialog(Tk):
                 self.__setUsrTime(v)
 
             if k == 'SysAllOnlineClientsAck':
-                # print "SysAllOnlineClientsAck", self.userList.size(), v
+                # case: {'allOnlineUsernames': ['usr1', 'usr5', 'usr4']}
                 if v.keys()[0] == 'allOnlineUsernames':
                     allCurrentUsers = self.userList.get(0, self.userList.size())
                     for e in v.values()[0]:
@@ -306,7 +306,7 @@ class Dialog(Tk):
 
             # other user login
             if k == 'SysUsrLogin' and v != self.__usrName:
-                print 'SysUsrLogin', self.userList.size(), v
+                # print 'SysUsrLogin', self.userList.size(), v
                 allCurrentUsers = self.userList.get(0, self.userList.size())
                 if v not in allCurrentUsers:
                     self.userList.insert(END, v)
@@ -321,11 +321,9 @@ class Dialog(Tk):
                 roomName = v.keys()[0]
                 msg = v.values()[0]
 
-                # print 'room list', self.__roomLists
                 self.__createRoomWin.withdraw()
                 if msg == 'Successful Room Creation':
                     self.__roomLists[roomName].showRoom()
-
                 elif msg == 'Room already exists':
                     self.__roomLists[roomName].showRoom()
 
@@ -341,6 +339,9 @@ class Dialog(Tk):
                 elif msg == 'Room Not Exists':
                     pass
 
+            if k == 'SysRoomListAck':
+                self.__enterRoomWin.updateRoomList(v)
+
             if k == 'SERVER_SHUTDOWN':
                 self.__client.closeClient()
                 self.__displayNewMsg('SysMsg', "Server is down, you can close the program, and come back later")
@@ -354,38 +355,49 @@ class Dialog(Tk):
     def __privateChatCmd(self):
         sel = self.userList.curselection()
         if sel.__len__() > 0:
-            friendUsrName = self.userList.get(sel)
-            pr = PrivateRoom(self.__usrName, friendUsrName, self.__client, self)
-            self.__privateRooms[friendUsrName] = pr
-            pr.mainloop()
+            receiverName = self.userList.get(sel)
+
+            usrMsg = self.msg.get('0.0', END)
+            self.__displayNewMsg(self.__usrName, usrMsg, 'userColor')
+            self.msg.delete('0.0', END)
+            data = packagePrivateChatMsg(self.__usrName, receiverName, usrMsg)
+            self.__client.appendToMsgSendingQueue(data)
+
+            # pr = PrivateRoom(self.__usrName, receiverName, self.__client, self)
+            # self.__privateRoomLists[receiverName] = pr
+            # pr.mainloop()
         else:
-            print 'please select a user'
+            tkMessageBox.showinfo("Note", "Please select a user")
 
     def closePrivateChatRoom(self, friendUsrname):
-        if self.__privateRooms.has_key(friendUsrname):
-            self.__privateRooms.__delitem__(friendUsrname)
-        # print 'private rooms', self.__privateRooms
+        if self.__privateRoomLists.has_key(friendUsrname):
+            self.__privateRoomLists.__delitem__(friendUsrname)
 
     def __creatRoomCmd(self):
         if not self.__createRoomWin:
             self.__createRoomWin = CreateRoomGUI(self.__client, self.__usrName, self)
             self.__createRoomWin.mainloop()
         else:
-            print 'call old create room'
             self.__createRoomWin.deiconify()
 
     def __enterRoomCmd(self):
+        self.queryAllRooms()
+
         if not self.__enterRoomWin:
             self.__enterRoomWin = EnterRoomGUI(self.__client, self.__usrName, self)
             self.__enterRoomWin.mainloop()
         else:
-            print 'call old enter room'
             self.__enterRoomWin.deiconify()
+
+    def queryAllRooms(self):
+        key = 'SysRoomListRequest'
+        value = ''
+        msg = packageSysMsg(key, value)
+        self.__client.appendToMsgSendingQueue(msg)
 
     def addNewRoom(self, roomName, room):
         if not self.__roomLists.has_key(roomName):
             self.__roomLists[roomName] = room
-        print 'room list', self.__roomLists
 
     def configureUI(self):
         # main window
@@ -452,7 +464,12 @@ class Dialog(Tk):
         self.frmRight.grid_propagate(0)
 
 
+def myHandler(signum, frame):
+    print "exit program"
+
+
 if __name__ == "__main__":
+    signal.signal(signal.SIGINT, myHandler)
 
     d = Dialog()
 
