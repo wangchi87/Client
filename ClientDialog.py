@@ -220,7 +220,7 @@ class Dialog(Tk):
         usrMsg = self.msg.get('0.0', END)
         self.__displayNewMsg(self.__usrName, usrMsg, 'userColor')
         self.msg.delete('0.0', END)
-        data = packagePublicChatMsg(usrMsg)
+        data = packagePublicChatMsg(self.__usrName, usrMsg)
         self.__client.appendToMsgSendingQueue(data)
 
     def closeDialog(self):
@@ -237,16 +237,15 @@ class Dialog(Tk):
             if msgDict is not None:
                 print msgDict
                 for k, v in msgDict.items():
-                    # k is the msg sender usrname or 'toAll'
-                    # v is the msg
+                    # k is the msg type: 'toAll', 'toClient' or 'toRoom'
                     if k == 'toAll':
-                        msg = v
-                        sepIndex = msg.find(': ')
-                        usr = msg[0: sepIndex]
-                        usrMsg = msg[sepIndex + 1:]
+                        # v is like [sender, msg]
+                        usr = v[0]
+                        usrMsg = v[1]
                         self.__displayNewMsg(usr, usrMsg)
-                    else:
-                        # print k, v
+                    elif k == 'toClient' and v[1] == self.__usrName:
+
+                        print k, v
                         # privateRoom = None
                         # if self.__privateRooms.has_key(k):
                         #     privateRoom = self.__privateRooms[k]
@@ -259,7 +258,11 @@ class Dialog(Tk):
                         # print privateRoom
                         # privateRoom.appendMsgToMsgList(v)
                         # self.msgList.insert(END, k +'(private msg) : '+ msgTime + v)
-                        self.__displayNewMsg(k + "(private msg)", v)
+
+                        # v is like [sender, receiver, msg]
+                        sender = v[0]
+                        prvtMsg = v[2]
+                        self.__displayNewMsg(sender + " (private msg)", prvtMsg)
                         pass
 
 
@@ -475,7 +478,7 @@ class PrivateRoom(Tk):
         self.msg.delete('0.0', END)
         # data = packagePublicChatMsg(usrMsg)
         # self.__client.appendToMsgSendingQueue(data)
-        data = packagePrivateChatMsg(self.__friendUsrName, usrMsg)
+        data = packagePrivateChatMsg(self.__usrName, self.__friendUsrName, usrMsg)
         self.__client.appendToMsgSendingQueue(data)
 
     def __displayNewMsg(self, usrname, msg, config=''):

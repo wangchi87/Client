@@ -5,22 +5,25 @@ def packageMsg(key, msg):
     rtnStr[key] = msg
     return json.dumps(rtnStr)
 
-
-def packagePublicChatMsg(msg):
-    rtnStr = {}
-    rtnStr['ChatMsg'] = {'toAll': msg}
-    return json.dumps(rtnStr)
-
-
 def packageSysMsg(key, msg):
     rtnStr = {}
     rtnStr['SysMsg'] = {key: msg}
     return json.dumps(rtnStr)
 
 
-def packagePrivateChatMsg(usrname, msg):
-    # at server end, usrname indicates the name of receiver.
-    # at cliend end, usrname indicates the name of sender
+def packagePublicChatMsg(sender, msg):
     rtnStr = {}
-    rtnStr['ChatMsg'] = {usrname: msg}
+    rtnStr['ChatMsg'] = {'toAll': [sender, msg]}
+    return json.dumps(rtnStr)
+
+
+def packagePrivateChatMsg(sender, receiver, msg):
+    rtnStr = {}
+    rtnStr['ChatMsg'] = {'toClient': [sender, receiver, msg]}
+    return json.dumps(rtnStr)
+
+
+def packageRoomChatMsg(sender, roomName, msg):
+    rtnStr = {}
+    rtnStr['ChatMsg'] = {'toRoom': [sender, roomName, msg]}
     return json.dumps(rtnStr)
