@@ -105,7 +105,7 @@ class LoginWindow(Toplevel):
             self.destroy()
             self.mainFrm.deiconify()
             self.mainFrm.setUsrName(self.__usrName)
-            self.mainFrm.startMsgThread()
+
             self.mainFrm.queryAllOnlineClients()
 
     def registBtn(self):
@@ -183,12 +183,9 @@ class Dialog(Tk):
         self.withdraw()
         self.protocol('WM_DELETE_WINDOW', self.closeDialog)
 
-        self.__chatMsgThread = threading.Thread(target=self.__processChatMsg)
-        self.__chatMsgThread.setDaemon(True)
-        self.__sysMsgThread = threading.Thread(target=self.__processSysMsg)
-        self.__sysMsgThread.setDaemon(True)
-
         self.__connect()
+
+        self.after(100, self.__processRecevdMsg)
 
         if self.__client.isSocketAlive():
             self.__loginWin = LoginWindow(self, self.__client)
@@ -206,10 +203,6 @@ class Dialog(Tk):
 
     def usrLoggedOut(self):
         self.__loggedIn = False
-
-    def startMsgThread(self):
-        self.__chatMsgThread.start()
-        self.__sysMsgThread.start()
 
     def getUsrName(self):
         return self.__usrName
@@ -237,9 +230,13 @@ class Dialog(Tk):
         for pr in self.__privateRoomLists.values():
             pr.closeRoom()
 
+    def __processRecevdMsg(self):
+        self.__processChatMsg()
+        self.__processSysMsg()
+        self.after(100, self.__processRecevdMsg)
+
     def __processChatMsg(self):
-        while self.__client.isSocketAlive() and self.hasAlreadyLoggedIn():
-            time.sleep(0.1)
+        if self.__client.isSocketAlive() and self.hasAlreadyLoggedIn():
             msgDict = self.__client.popChatMsgFromQueue()
             if msgDict is not None:
                 # print msgDict
@@ -257,6 +254,8 @@ class Dialog(Tk):
                         sender = v[0]
                         prvtMsg = v[2]
                         self.__displayNewMsg(sender + " (private msg)", prvtMsg)
+                        # pr = PrivateRoom('a', 'v', self.__client, self)
+                        # pr.mainloop()
 
                     elif k == 'toRoom':
                         sender = v[0]
@@ -265,8 +264,6 @@ class Dialog(Tk):
 
                         roomWin = self.__roomLists[roomName]
                         roomWin.displayNewMsg(sender, roomMsg)
-
-        print 'end of displaying chat msg thread'
 
     def __displayNewMsg(self, usrname, msg, config=''):
         # append msg to list component
@@ -281,13 +278,9 @@ class Dialog(Tk):
         self.__client.appendToMsgSendingQueue(data)
 
     def __processSysMsg(self):
-
-        while self.__client.isSocketAlive() and self.hasAlreadyLoggedIn():
+        if self.__client.isSocketAlive() and self.hasAlreadyLoggedIn():
             sysMsg = self.__client.popSysMsgFromQueue()
-
-            if sysMsg is None:
-                time.sleep(0.2)
-            else:
+            if sysMsg:
                 self.__analyseSysMsg(sysMsg)
 
     def __analyseSysMsg(self, sysMsg):
