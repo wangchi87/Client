@@ -154,7 +154,7 @@ class Client:
             print 'exception in loading json data', e
             print msg
         else:
-            print data
+            # print data
             for k, v in data.items():
                 # print k, v
                 if k == 'ChatMsg':

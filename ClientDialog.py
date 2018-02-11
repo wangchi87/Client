@@ -207,6 +207,9 @@ class Dialog(Tk):
         self.__chatMsgThread.start()
         self.__sysMsgThread.start()
 
+    def getUsrName(self):
+        return self.__usrName
+
     def __connect(self):
         self.__client = Client()
         self.__client.connectToServer()
@@ -235,7 +238,7 @@ class Dialog(Tk):
             time.sleep(0.1)
             msgDict = self.__client.popChatMsgFromQueue()
             if msgDict is not None:
-                print msgDict
+                # print msgDict
                 for k, v in msgDict.items():
 
                     # k is the msg type: 'toAll', 'toClient' or 'toRoom'
@@ -246,13 +249,22 @@ class Dialog(Tk):
                         self.__displayNewMsg(usr, usrMsg)
 
                     elif k == 'toClient' and v[1] == self.__usrName:
-                        print k, v
+                        # print k, v
                         # v is like [sender, receiver, msg]
                         sender = v[0]
                         prvtMsg = v[2]
                         self.__displayNewMsg(sender + " (private msg)", prvtMsg)
-                        pass
 
+                    elif k == 'toRoom':
+                        print k, v
+                        sender = v[0]
+                        roomName = v[1]
+                        roomMsg = v[2]
+
+                        roomWin = self.__roomLists[roomName]
+                        roomWin.displayNewMsg(sender, roomMsg)
+
+                        pass
 
         print 'end of displaying chat msg thread'
 
@@ -328,8 +340,6 @@ class Dialog(Tk):
                     self.__roomLists[roomName].showRoom()
                 elif msg == 'Room Not Exists':
                     pass
-
-                pass
 
             if k == 'SERVER_SHUTDOWN':
                 self.__client.closeClient()
