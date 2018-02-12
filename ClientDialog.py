@@ -71,7 +71,7 @@ class LoginWindow(Toplevel):
         password = self.log_entry_password.get()
 
         jstr = package_sys_msg('SysLoginRequest', {self.__user_name: password})
-        self.__client.appendToMsgSendingQueue(jstr)
+        self.__client.append_to_msg_sending_queue(jstr)
 
         # wait for system login msg replied from server
         start_time = time.time()
@@ -81,7 +81,7 @@ class LoginWindow(Toplevel):
                 self.log_button_enter['state'] = 'normal'
                 return False
 
-            sys_msg = self.__client.popSysMsgFromQueue()
+            sys_msg = self.__client.pop_sys_msg_from_queue()
 
             # sys_msg is something like {"SysLoginAck": "Successful login"}
             if sys_msg is None:
@@ -89,7 +89,9 @@ class LoginWindow(Toplevel):
             elif sys_msg.keys()[0] == 'SysLoginAck':
                 break
             else:
-                self.__client.appendSysMsg(sys_msg)
+                self.__client.append_sys_msg(sys_msg)
+
+        print "login response:", sys_msg
 
         if sys_msg is not None:
             if sys_msg.values()[0] == 'Successful login':
@@ -119,7 +121,7 @@ class LoginWindow(Toplevel):
         password = self.log_entry_password.get()
 
         jstr = package_sys_msg('SysRegisterRequest', {self.__user_name: password})
-        self.__client.appendToMsgSendingQueue(jstr)
+        self.__client.append_to_msg_sending_queue(jstr)
 
         # wait for system registration reply msg from server
         start_time = time.time()
@@ -129,7 +131,7 @@ class LoginWindow(Toplevel):
                 self.log_button_register['state'] = 'normal'
                 return
 
-            sys_msg = self.__client.popSysMsgFromQueue()
+            sys_msg = self.__client.pop_sys_msg_from_queue()
 
             # sys_msg is something like {"SysRegisterAck": "Successful registration"}
             if sys_msg == None:
@@ -137,11 +139,11 @@ class LoginWindow(Toplevel):
             elif sys_msg.keys()[0] == 'SysRegisterAck':
                 break
             else:
-                self.__client.appendSysMsg(sys_msg)
+                self.__client.append_sys_msg(sys_msg)
                 time.sleep(0.2)
 
         if sys_msg is not None:
-            if sys_msg.values()[0] == 'Succesful registration':
+            if sys_msg.values()[0] == 'Successful registration':
                 self.log_label_info['text'] = sys_msg.values()[0]
                 self.log_button_register['state'] = 'normal'
                 return True
@@ -161,7 +163,7 @@ class Dialog(Tk):
     __client = None
 
     __logged_in = False
-    # manage private rooms, KEY is usrname, value is the handle of room object
+    # manage private rooms, KEY is username, value is the handle of room object
     __private_room_list = {}
 
     # roomLists maintain the rooms the client are in or created
@@ -183,7 +185,7 @@ class Dialog(Tk):
 
         self.after(100, self.__process_received_msg)
 
-        if self.__client.isSocketAlive():
+        if self.__client.is_socket_alive():
             self.__login_window = LoginWindow(self, self.__client)
         else:
             print 'failed to connect server'
@@ -205,11 +207,11 @@ class Dialog(Tk):
 
     def __connect(self):
         self.__client = Client()
-        self.__client.connectToServer()
+        self.__client.connect_to_server()
 
-    def set_user_name(self, myStr):
-        self.__user_name = myStr
-        self.text_label_username['text'] = myStr
+    def set_user_name(self, user_name):
+        self.__user_name = user_name
+        self.label_username['text'] = user_name
         print self.__user_name
 
     def __send_msg_btn_cmd(self):
@@ -217,14 +219,14 @@ class Dialog(Tk):
         self.__display_new_msg(self.__user_name, usrMsg, 'userColor')
         self.text_user_msg.delete('0.0', END)
         data = package_public_chat_msg(self.__user_name, usrMsg)
-        self.__client.appendToMsgSendingQueue(data)
+        self.__client.append_to_msg_sending_queue(data)
 
     def close_dialog(self):
         self.__client.close_client()
         self.destroy()
 
         for pr in self.__private_room_list.values():
-            pr.closeRoom()
+            pr.close_room()
 
     def __process_received_msg(self):
         self.__process_chat_msg()
@@ -232,8 +234,8 @@ class Dialog(Tk):
         self.after(100, self.__process_received_msg)
 
     def __process_chat_msg(self):
-        if self.__client.isSocketAlive() and self.has_already_logged_in():
-            msg_dict = self.__client.popChatMsgFromQueue()
+        if self.__client.is_socket_alive() and self.has_already_logged_in():
+            msg_dict = self.__client.pop_chat_msg_from_queue()
             if msg_dict is not None:
                 # print msg_dict
                 for msg_id, msg_text in msg_dict.items():
@@ -248,10 +250,22 @@ class Dialog(Tk):
                     elif msg_id == 'toClient' and msg_text[1] == self.__user_name:
                         # msg_text is like [sender, receiver, msg]
                         sender = msg_text[0]
+                        receiver = msg_text[1]
+                        prvt_msg = msg_text[2]
+
+                        sender = msg_text[0]
                         prvt_msg = msg_text[2]
                         self.__display_new_msg(sender + " (private msg)", prvt_msg)
-                        # pr = PrivateRoom('a', 'msg_text', self.__client, self)
-                        # pr.mainloop()
+
+                        # if self.__private_room_list.has_key(sender):
+                        #     pr_window = self.__private_room_list[sender]
+                        #     pr_window.display_new_msg(sender + u" (私聊消息)", prvt_msg, "privateChatColor")
+                        #     pr_window.deiconify()
+                        # else:
+                        #     pr_window = PrivateRoom(receiver, sender, self.__client, self)
+                        #     pr_window.display_new_msg(sender + u" (私聊消息)", prvt_msg, "privateChatColor")
+                        #     pr_window.mainloop()
+                        #     self.__private_room_list[sender] = pr_window
 
                     elif msg_id == 'toRoom':
                         sender = msg_text[0]
@@ -259,7 +273,7 @@ class Dialog(Tk):
                         room_msg = msg_text[2]
 
                         room_win = self.__room_list[room_name]
-                        room_win.displayNewMsg(sender, room_msg)
+                        room_win.display_new_msg(sender, room_msg)
 
     def __display_new_msg(self, user_name, msg, config=''):
         # append msg to list component
@@ -271,17 +285,17 @@ class Dialog(Tk):
     def query_all_online_clients(self):
         key = "SysAllOnlineClientsRequest"
         data = package_sys_msg(key, '')
-        self.__client.appendToMsgSendingQueue(data)
+        self.__client.append_to_msg_sending_queue(data)
 
     def __process_sys_msg(self):
-        if self.__client.isSocketAlive() and self.has_already_logged_in():
-            sys_msg = self.__client.popSysMsgFromQueue()
+        if self.__client.is_socket_alive() and self.has_already_logged_in():
+            sys_msg = self.__client.pop_sys_msg_from_queue()
             if sys_msg:
                 self.__analyse_sys_msg(sys_msg)
 
-    def __analyse_sys_msg(self, sysMsg):
+    def __analyse_sys_msg(self, sys_msg):
         # print 'sysMsg: ', sysMsg
-        for msg_id, msg_text in sysMsg.items():
+        for msg_id, msg_text in sys_msg.items():
             if msg_id == 'SysUsrOnlineDurationMsg':
                 self.__set_usr_online_time(msg_text)
 
@@ -312,9 +326,9 @@ class Dialog(Tk):
 
                 self.__create_room_window.withdraw()
                 if msg == 'Successful Room Creation':
-                    self.__room_list[room_name].showRoom()
+                    self.__room_list[room_name].show_room()
                 elif msg == 'Room already exists':
-                    self.__room_list[room_name].showRoom()
+                    self.__room_list[room_name].show_room()
 
             if msg_id == 'SysEnterRoomAck':
                 room_name = msg_text.keys()[0]
@@ -322,14 +336,14 @@ class Dialog(Tk):
                 # print 'room list', self.__roomLists
                 self.__enter_room_window.withdraw()
                 if msg == 'Successfully Enter The Room':
-                    self.__room_list[room_name].showRoom()
+                    self.__room_list[room_name].show_room()
                 elif msg == 'Already In The Room':
-                    self.__room_list[room_name].showRoom()
+                    self.__room_list[room_name].show_room()
                 elif msg == 'Room Not Exists':
                     pass
 
             if msg_id == 'SysRoomListAck':
-                self.__enter_room_window.updateRoomList(msg_text)
+                self.__enter_room_window.update_room_list(msg_text)
 
             if msg_id == 'SERVER_SHUTDOWN':
                 self.__client.close_client()
@@ -346,21 +360,24 @@ class Dialog(Tk):
         if sel.__len__() > 0:
             receiver_name = self.listbox_user_list.get(sel)
 
-            usrMsg = self.text_user_msg.get('0.0', END)
-            self.__display_new_msg(self.__user_name, usrMsg, 'userColor')
+            usr_msg = self.text_user_msg.get('0.0', END)
+            self.__display_new_msg(self.__user_name, usr_msg, 'privateChatColor')
             self.text_user_msg.delete('0.0', END)
-            data = package_private_chat_msg(self.__user_name, receiver_name, usrMsg)
-            self.__client.appendToMsgSendingQueue(data)
-
-            # pr = PrivateRoom(self.__usrName, receiver_name, self.__client, self)
-            # self.__privateRoomLists[receiver_name] = pr
-            # pr.mainloop()
+            data = package_private_chat_msg(self.__user_name, receiver_name, usr_msg)
+            self.__client.append_to_msg_sending_queue(data)
+            # if not self.__private_room_list.has_key(receiver_name):
+            #     pr = PrivateRoom(self.__user_name, receiver_name, self.__client, self)
+            #     pr.mainloop()
+            #     self.__private_room_list[receiver_name] = pr
+            # else:
+            #     pr = self.__private_room_list[receiver_name]
+            #     pr.deiconify()
         else:
             tkMessageBox.showinfo("Note", "Please select a user")
 
-    def close_private_chat_room(self, friendUsrname):
-        if self.__private_room_list.has_key(friendUsrname):
-            self.__private_room_list.__delitem__(friendUsrname)
+    def close_private_chat_room(self, receiver_name):
+        if self.__private_room_list.has_key(receiver_name):
+            self.__private_room_list.__delitem__(receiver_name)
 
     def __create_room_btn_cmd(self):
         if not self.__create_room_window:
@@ -382,7 +399,7 @@ class Dialog(Tk):
         key = 'SysRoomListRequest'
         value = ''
         msg = package_sys_msg(key, value)
-        self.__client.appendToMsgSendingQueue(msg)
+        self.__client.append_to_msg_sending_queue(msg)
 
     def add_new_room(self, roomName, room):
         if not self.__room_list.has_key(roomName):
@@ -392,7 +409,7 @@ class Dialog(Tk):
         # main window
         bg_color = '#208090'
         self['bg'] = bg_color
-        self.geometry("550x600+520+500")
+        self.geometry("550x600+600+300")
         self.resizable(width=True, height=True)
 
         self.frm_top = Frame(self, width=380, height=250)
@@ -403,35 +420,38 @@ class Dialog(Tk):
         self.frm_right['bg'] = bg_color
 
         # message zone
-        self.text_label_msg = Label(self, justify=LEFT, text=u"""消息列表""")
-        self.text_label_username = Label(self, justify=LEFT, text=self.__user_name)
+        self.label_msg = Label(self, justify=LEFT, text=u"""消息列表""")
+        self.label_username = Label(self, justify=LEFT, text=self.__user_name)
 
-        self.text_msg_list = ScrolledText(self.frm_top, borderwidth=1, highlightthickness=0, relief='flat', bg='#fffff0',
-                                          state=DISABLED)
+        self.text_msg_list = ScrolledText(self.frm_top, borderwidth=1,
+                                          highlightthickness=0, relief='flat',
+                                          bg='#fffff0', state=DISABLED)
         self.text_msg_list.tag_config('userColor', foreground='red')
+        self.text_msg_list.tag_config('privateChatColor', foreground='blue')
         self.text_msg_list.place(x=0, y=0, width=380, height=250)
 
         self.text_user_msg = ScrolledText(self.frm_mid)
         self.text_user_msg.grid(row=0, column=0)
 
         # buttons
-        self.button_send_msg = Button(self.frm_btm, text='发送消息', background='grey', command=self.__send_msg_btn_cmd)
-        self.button_private_chat = Button(self.frm_right, text='私聊', background='grey', command=self.__private_chat_btn_cmd)
+        self.button_send_msg = Button(self.frm_btm, text='发送群消息', background='grey', command=self.__send_msg_btn_cmd)
+        self.button_private_chat = Button(self.frm_right, text='发送私聊消息', background='grey',
+                                          command=self.__private_chat_btn_cmd)
         self.button_create_room = Button(self.frm_right, text='创建房间', background='grey', command=self.__create_room_btn_cmd)
         self.button_enter_room = Button(self.frm_right, text='进入房间', background='grey', command=self.__enter_room_btn_cmd)
 
         self.label_last_online_time = Label(self.frm_right, text='  上次登录时间  \n')
         self.label_total_online_time = Label(self.frm_right, text=' 总共在线时间  \n')
 
-        self.text_label_other_users = Label(self.frm_right, justify=LEFT, text=u"""其他在线用户""")
+        self.label_other_users = Label(self.frm_right, justify=LEFT, text=u"""其他在线用户""")
         self.user_list_str = StringVar()
         self.listbox_user_list = Listbox(self.frm_right, borderwidth=1, highlightthickness=0, relief='flat', bg='#ededed',
                                          listvariable=self.user_list_str)
 
         # layout
-        self.text_label_msg.grid(row=0, column=0, padx=2, pady=2, sticky=W)
+        self.label_msg.grid(row=0, column=0, padx=2, pady=2, sticky=W)
         self.frm_top.grid(row=1, column=0, padx=2, pady=2)
-        self.text_label_username.grid(row=2, column=0, padx=2, pady=2, sticky=W)
+        self.label_username.grid(row=2, column=0, padx=2, pady=2, sticky=W)
         self.frm_mid.grid(row=3, column=0, padx=2, pady=2, )
         self.frm_btm.grid(row=4, column=0, padx=2, pady=2, )
         self.frm_right.grid(row=0, column=1, rowspan=5, sticky=N + S)
@@ -439,13 +459,13 @@ class Dialog(Tk):
         self.button_send_msg.grid()
 
         # right frame layout
-        self.label_last_online_time.place(x=30, y=30, width=120, height=50)
-        self.label_total_online_time.place(x=30, y=90, width=120, height=50)
-        self.button_create_room.place(x=30, y=160, width=120, height=30)
-        self.button_enter_room.place(x=30, y=200, width=120, height=30)
-        self.text_label_other_users.place(x=30, y=260, width=120, height=30)
+        self.label_last_online_time.place(x=20, y=30, width=130, height=50)
+        self.label_total_online_time.place(x=20, y=90, width=130, height=50)
+        self.button_create_room.place(x=20, y=160, width=130, height=30)
+        self.button_enter_room.place(x=20, y=200, width=130, height=30)
+        self.label_other_users.place(x=20, y=260, width=130, height=30)
         self.listbox_user_list.place(x=7, y=311, width=150, height=250)
-        self.button_private_chat.place(x=7, y=565, width=90, height=30)
+        self.button_private_chat.place(x=7, y=565, width=120, height=30)
 
         self.frm_top.grid_propagate(0)
         self.frm_mid.grid_propagate(0)

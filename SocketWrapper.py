@@ -2,7 +2,8 @@
 import socket
 import struct
 
-def socketCreation():
+
+def socket_creation():
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     except socket.error as err:
@@ -10,19 +11,22 @@ def socketCreation():
     else:
         return sock
 
-def socketBind(sock, host, port):
+
+def socket_bind(sock, host, port):
     try:
         sock.bind((host,port))
     except socket.error as err:
         print "failed to bind address: ", err
 
-def socketListen(sock):
+
+def socket_listen(sock):
     try:
         sock.listen(5)
     except socket.error as err:
         print "failed to listen socket: ", err
 
-def socketAccept(sock):
+
+def socket_accept(sock):
     try:
         s, a = sock.accept()
     except socket.error as err:
@@ -30,7 +34,8 @@ def socketAccept(sock):
     else:
         return s, a
 
-def socketConnection(sock, host, port):
+
+def socket_connection(sock, host, port):
     try:
         sock.connect((host, port))
     except socket.error as err:
@@ -40,34 +45,17 @@ def socketConnection(sock, host, port):
         return True
 
 
-# def socketSend(sock, data):
-#     '''
-#     :return: we return a boolean type of data to indicate whether there is
-#     an expection when sending the data
-#     '''
-#     # print 'socket send data', data
-#     # we add EOD(end of data) as the segmentation of data stream
-#     data += 'EOD'
-#     data.encode('utf-8')
-#     try:
-#         sock.sendall(data)
-#     except socket.error as err:
-#         print "failed to send data: ", err
-#         return False
-#     else:
-#         return True
-
-def socketSend(sock, data):
+def socket_send(sock, data):
     '''
+    we add a header for each msg, which contains the length of each data
+
     :return: we return a boolean type of data to indicate whether there is
-    an expection when sending the data
+        an expection when sending the data
     '''
-    # print 'socket send data', data
-    # we add a header for each msg, which contains the length of each data
     head = ['msgHeader', len(data)]
-    headPack = struct.pack('!9sI', *head)
+    head_pack = struct.pack('!9sI', *head)
 
-    data = headPack + data.encode('utf-8')
+    data = head_pack + data.encode('utf-8')
 
     try:
         sock.sendall(data)
@@ -81,12 +69,14 @@ def socketSend(sock, data):
 dataBuffer = ''
 headerSize = 13
 
-def socketRecv(sock, recvBuffSize):
+
+def socket_recv(sock, recv_buffer_size):
     ''' socket recv except of this method is caught outside '''
+    # in client, we actually did not use this to receive data
     global dataBuffer
 
     while 1:
-        data = sock.recv(recvBuffSize)
+        data = sock.recv(recv_buffer_size)
 
         # client never send ''!
         # this will happen only when the client is terminated unexpectedly
@@ -101,34 +91,14 @@ def socketRecv(sock, recvBuffSize):
                 print "data less is than header"
                 break
 
-            headPack = struct.unpack('!9sI', dataBuffer[:headerSize])
-            msgBodySize = headPack[1]
+            head_pack = struct.unpack('!9sI', dataBuffer[:headerSize])
+            msg_body_size = head_pack[1]
 
-            if len(dataBuffer) < headerSize + msgBodySize:
+            if len(dataBuffer) < headerSize + msg_body_size:
                 print "data less is than whole msg"
                 break
 
-            msg = dataBuffer[headerSize:headerSize + msgBodySize]
-            dataBuffer = dataBuffer[headerSize + msgBodySize:]
+            msg = dataBuffer[headerSize:headerSize + msg_body_size]
+            dataBuffer = dataBuffer[headerSize + msg_body_size:]
             return msg
 
-# def socketRecv(sock, recvBuffSize):
-#     ''' socket recv except of this method is caught outside '''
-#     data = ''
-#
-#     while 1:
-#
-#         buf = sock.recv(recvBuffSize)
-#         buf.decode('utf-8')
-#         data = data + buf
-#
-#         if data[-3:] == 'EOD':
-#              break
-#
-#         # client never send ''!
-#         # this will happen only when the client is terminated unexpectedly
-#         if not data:
-#             # print 'receive empty string!'
-#             return data
-#
-#     return data[:-3]

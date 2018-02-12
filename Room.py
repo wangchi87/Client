@@ -10,75 +10,73 @@ from Utilities import *
 
 class CreateRoomGUI(Toplevel):
     __client = None
-    __usrName = None
-    __mainFrm = None
+    __user_name = None
+    __main_frame = None
 
-    __roomName = None
     __room = None
 
-    def __init__(self, client, usrName, mfm):
+    def __init__(self, client, username, mfm):
         Toplevel.__init__(self)
-        self.protocol('WM_DELETE_WINDOW', self.closeRoom)
-        self.__usrName = usrName
+        self.protocol('WM_DELETE_WINDOW', self.close_room)
+        self.__user_name = username
         self.__client = client
-        self.__mainFrm = mfm
-        self.configureUI()
+        self.__main_frame = mfm
+        self.configure_GUI()
 
-    def closeRoom(self):
+    def close_room(self):
         self.withdraw()
 
-    def configureUI(self):
+    def configure_GUI(self):
         self.title(u'创建房价')
-        logFrmPos = '%dx%d+%d+%d' % (325, 230, (1500 - 400) / 2, (900 - 300) / 2)
-        self.geometry(logFrmPos)
+        frm_pos = '%dx%d+%d+%d' % (325, 230, (1500 - 400) / 2, (900 - 300) / 2)
+        self.geometry(frm_pos)
         self.resizable(width=True, height=True)
 
-        self.labelText = Label(self, text=u'房价名称')
-        self.labelCreationInfo = Label(self)
-        self.textRoomName = Entry(self, text=u'room')
+        self.label_room_name = Label(self, text=u'房间名称')
+        self.label_creation_Info = Label(self)
+        self.text_room_name = Entry(self, text=u'room')
 
-        self.logBtnRegister = Button(self, text=u'创建', command=self.registerBtn)
-        self.logBtnCancel = Button(self, text=u'取消', command=self.cancelBtn)
+        self.button_room_creation = Button(self, text=u'创建', command=self.create_room_btn_cmd)
+        self.button_cancel = Button(self, text=u'取消', command=self.cancel_btn_cmd)
 
-        self.labelText.pack(pady=15)
-        self.labelCreationInfo.pack(pady=5)
-        self.textRoomName.pack(pady=5)
-        self.logBtnRegister.pack(pady=5)
-        self.logBtnCancel.pack(pady=5)
+        self.label_room_name.pack(pady=15)
+        self.label_creation_Info.pack(pady=5)
+        self.text_room_name.pack(pady=5)
+        self.button_room_creation.pack(pady=5)
+        self.button_cancel.pack(pady=5)
 
-    def cancelBtn(self):
+    def cancel_btn_cmd(self):
         self.withdraw()
 
-    def registerBtn(self):
-        roomName = self.textRoomName.get()
+    def create_room_btn_cmd(self):
+        room_name = self.text_room_name.get()
         key = 'SysCreateRoomRequest'
-        value = {'admin': self.__usrName, 'roomName': roomName}
+        value = {'admin': self.__user_name, 'roomName': room_name}
         msg = package_sys_msg(key, value)
-        self.__client.appendToMsgSendingQueue(msg)
-        print msg
+        self.__client.append_to_msg_sending_queue(msg)
 
-        # get sys ack meg, add new room to maifrm.room list
-        self.__room = Room(self.__client, roomName, self.__mainFrm, self)
+        # get sys ack meg, add new room to main_frame.room_list
+        self.__room = Room(self.__client, room_name, self.__main_frame, self)
 
 
 class EnterRoomGUI(Toplevel):
     __client = None
-    __usrName = None
-    __mainFrm = None
-    __roomList = []
+    __user_name = None
+    __main_frame = None
+    __room_list = []
 
-    __roomName = None
+    _room_name = None
     __room = None
 
-    def __init__(self, client, usrName, mfm):
+    def __init__(self, client, username, mfm):
         Toplevel.__init__(self)
         self.protocol('WM_DELETE_WINDOW', self.closeRoom)
-        self.__usrName = usrName
+        self.__user_name = username
         self.__client = client
-        self.__mainFrm = mfm
+        self.__main_frame = mfm
 
         # query all existing room
-        self.queryAllRooms()
+        self.query_all_rooms()
         self.configureUI()
 
     def closeRoom(self):
@@ -86,171 +84,165 @@ class EnterRoomGUI(Toplevel):
 
     def configureUI(self):
         self.title(u'进入房间')
-        logFrmPos = '%dx%d+%d+%d' % (250, 400, (1500 - 400) / 2, (900 - 300) / 2)
-        self.geometry(logFrmPos)
+        frame_pos = '%dx%d+%d+%d' % (250, 400, (1500 - 400) / 2, (900 - 300) / 2)
+        self.geometry(frame_pos)
         self.resizable(width=True, height=True)
 
-        self.labelText = Label(self, text=u'所有房间')
-        self.labelCreationInfo = Label(self)
+        self.label_caption = Label(self, text=u'所有房间')
 
-        self.roomListBox = Listbox(self, bg='#fffff0')
-        self.roomListBox.grid_propagate(0)
+        self.listbox_room = Listbox(self, bg='#fffff0')
+        self.listbox_room.grid_propagate(0)
 
-        self.logBtnRegister = Button(self, text=u'进入', command=self.enterRoomBtn)
-        self.logBtnCancel = Button(self, text=u'取消', command=self.cancelBtn)
+        self.button_enter_room = Button(self, text=u'进入', command=self.enter_room_btn_cmd)
+        self.button_cancel = Button(self, text=u'取消', command=self.cancel_btn_cmd)
 
-        self.labelText.place(x=75, y=20, width=100, height=30)
+        self.label_caption.place(x=75, y=20, width=100, height=30)
+        self.listbox_room.place(x=25, y=80, width=200, height=200)
+        self.button_enter_room.place(x=50, y=350, width=50, height=30)
+        self.button_cancel.place(x=150, y=350, width=50, height=30)
 
-        self.roomListBox.place(x=25, y=80, width=200, height=200)
-        self.labelCreationInfo.place(x=25, y=300, width=200, height=30)
-        self.logBtnRegister.place(x=50, y=350, width=50, height=30)
-        self.logBtnCancel.place(x=150, y=350, width=50, height=30)
-
-    def cancelBtn(self):
+    def cancel_btn_cmd(self):
         self.withdraw()
 
-    def enterRoomBtn(self):
-        if self.roomListBox.size() == 0:
+    def enter_room_btn_cmd(self):
+        if self.listbox_room.size() == 0:
             tkMessageBox.showinfo("Note", "There is no room available")
             return
 
-        # self.roomListBox.selection_set(0)
-        sel = self.roomListBox.curselection()
+        sel = self.listbox_room.curselection()
         if sel.__len__() > 0:
-            self.__roomName = self.roomListBox.get(sel)
+            self._room_name = self.listbox_room.get(sel)
             key = 'SysEnterRoomRequest'
-            value = {'roomName': self.__roomName}
+            value = {'roomName': self._room_name}
             msg = package_sys_msg(key, value)
-            self.__client.appendToMsgSendingQueue(msg)
-            self.__room = Room(self.__client, self.__roomName, self.__mainFrm, self)
+            self.__client.append_to_msg_sending_queue(msg)
+            self.__room = Room(self.__client, self._room_name, self.__main_frame, self)
         else:
             tkMessageBox.showinfo("Note", "Please select a room")
 
-    def queryAllRooms(self):
+    def query_all_rooms(self):
         key = 'SysRoomListRequest'
         value = ''
         msg = package_sys_msg(key, value)
-        self.__client.appendToMsgSendingQueue(msg)
+        self.__client.append_to_msg_sending_queue(msg)
 
-    def updateRoomList(self, list):
-        self.roomListBox.delete(0, END)
-        for r in list:
-            self.roomListBox.insert(END, r)
-
-    def setRoomList(self, rooms):
-        self.__roomList = rooms
+    def update_room_list(self, room_list):
+        self.listbox_room.delete(0, END)
+        for r in room_list:
+            self.listbox_room.insert(END, r)
 
 
 class Room(Toplevel):
     __client = None
-    __usrName = None
-    __roomName = None
-    __mainFrm = None
-    __topFrm = None
+    __user_name = None
+    __room_name = None
+    __main_frame = None
+    __top_frame = None
 
-    def __init__(self, client, roomName, mfm, topFrm):
+    def __init__(self, client, room_name, main_frame, top_frame):
         Toplevel.__init__(self)
 
         self['background'] = 'grey'
 
-        self.protocol('WM_DELETE_WINDOW', self.closeRoom)
-        self.__usrName = mfm.get_user_name()
+        self.protocol('WM_DELETE_WINDOW', self.close_room)
+        self.__user_name = main_frame.get_user_name()
 
-        self.title("Room Name:" + roomName)
-        self.__roomName = roomName
+        self.title("Room Name:" + room_name)
+        self.__room_name = room_name
 
-        self.configureUI()
+        self.configure_GUI()
         self.__client = client
 
-        self.__topFrm = topFrm
-        self.__mainFrm = mfm
-        self.__mainFrm.add_new_room(self.__roomName, self)
+        self.__top_frame = top_frame
+        self.__main_frame = main_frame
+        self.__main_frame.add_new_room(self.__room_name, self)
 
         self.withdraw()
         self.mainloop()
 
-    def showRoom(self):
+    def show_room(self):
         print 'show room'
-        self.__topFrm.withdraw()
+        self.__top_frame.withdraw()
         self.deiconify()
 
-    def closeRoom(self):
+    def close_room(self):
         self.withdraw()
 
-    def configureUI(self):
+    def configure_GUI(self):
         # main window
-        bgColor = '#208090'
-        self['bg'] = bgColor
+        bg_color = '#208090'
+        self['bg'] = bg_color
         self.geometry("400x500+520+500")
         self.resizable(width=True, height=True)
 
-        self.frmTop = Frame(self, width=380, height=250)
-        self.frmMid = Frame(self, width=380, height=150)
-        self.frmBtm = Frame(self, width=380, height=30)
-        self.frmBtm['bg'] = bgColor
+        self.frm_top = Frame(self, width=380, height=250)
+        self.frm_mid = Frame(self, width=380, height=150)
+        self.frm_btm = Frame(self, width=380, height=30)
+        self.frm_btm['bg'] = bg_color
 
-        self.text_label_msgDisplay = Label(self, justify=LEFT, text=u"""消息列表""")
-        self.text_label_usrName = Label(self, justify=LEFT, text=self.__usrName)
+        self.label_msg_list = Label(self, justify=LEFT, text=u"""消息列表""")
+        self.label_user_name = Label(self, justify=LEFT, text=self.__user_name)
 
-        self.msgList = ScrolledText(self.frmTop, borderwidth=1, highlightthickness=0, relief='flat', bg='#fffff0')
-        self.msgList.tag_config('userColor', foreground='red')
-        self.msgList.place(x=0, y=0, width=380, height=250)
+        self.text_msg_List = ScrolledText(self.frm_top, borderwidth=1, highlightthickness=0, relief='flat',
+                                          bg='#fffff0')
+        self.text_msg_List.tag_config('userColor', foreground='red')
+        self.text_msg_List.place(x=0, y=0, width=380, height=250)
 
-        self.msg = ScrolledText(self.frmMid)
-        self.msg.grid(row=0, column=0)
+        self.text_client_msg = ScrolledText(self.frm_mid)
+        self.text_client_msg.grid(row=0, column=0)
 
-        self.sendBtn = Button(self.frmBtm, text='发送消息', command=self.__sendMsgBtn)
-        self.sendBtn.grid()
+        self.button_send_msg = Button(self.frm_btm, text='发送消息', command=self.__send_msg_btn_cmd)
+        self.button_send_msg.grid()
 
-        self.text_label_msgDisplay.grid(row=0, column=0, padx=2, pady=2, sticky=W)
-        self.frmTop.grid(row=1, column=0, padx=2, pady=2)
-        self.text_label_usrName.grid(row=2, column=0, padx=2, pady=2, sticky=W)
-        self.frmMid.grid(row=3, column=0, padx=2, pady=2, )
-        self.frmBtm.grid(row=4, column=0, padx=2, pady=2, )
+        self.label_msg_list.grid(row=0, column=0, padx=2, pady=2, sticky=W)
+        self.frm_top.grid(row=1, column=0, padx=2, pady=2)
+        self.label_user_name.grid(row=2, column=0, padx=2, pady=2, sticky=W)
+        self.frm_mid.grid(row=3, column=0, padx=2, pady=2, )
+        self.frm_btm.grid(row=4, column=0, padx=2, pady=2, )
 
-        self.frmTop.grid_propagate(0)
-        self.frmMid.grid_propagate(0)
-        self.frmBtm.grid_propagate(0)
+        self.frm_top.grid_propagate(0)
+        self.frm_mid.grid_propagate(0)
+        self.frm_btm.grid_propagate(0)
 
-    def __sendMsgBtn(self):
-        usrMsg = self.msg.get('0.0', END)
-        self.displayNewMsg(self.__usrName, usrMsg, 'userColor')
-        self.msg.delete('0.0', END)
-        data = package_room_chat_msg(self.__usrName, self.__roomName, usrMsg)
-        self.__client.appendToMsgSendingQueue(data)
+    def __send_msg_btn_cmd(self):
+        usr_msg = self.text_client_msg.get('0.0', END)
+        self.display_new_msg(self.__user_name, usr_msg, 'userColor')
+        self.text_client_msg.delete('0.0', END)
+        data = package_room_chat_msg(self.__user_name, self.__room_name, usr_msg)
+        self.__client.append_to_msg_sending_queue(data)
 
-    def displayNewMsg(self, usrname, msg, config=''):
-        self.msgList['state'] = 'normal'
-        msgTime = time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
-        self.msgList.insert(END, usrname + ': ' + msgTime + msg, config)
-        self.msgList['state'] = 'disabled'
+    def display_new_msg(self, user_name, msg, config=''):
+        self.text_msg_List['state'] = 'normal'
+        msg_time = time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
+        self.text_msg_List.insert(END, user_name + ': ' + msg_time + msg, config)
+        self.text_msg_List['state'] = 'disabled'
 
 
 class PrivateRoom(Toplevel):
     __client = None
-    __receiverName = None
-    __usrName = None
+    __receive_name = None
+    __user_name = None
 
-    __mainFrm = None
+    __main_frame = None
 
-    def __init__(self, mn, fn, client, mfm):
+    def __init__(self, user_name, receiver_name, client, mainFrm):
         Toplevel.__init__(self)
 
         self['background'] = 'grey'
 
-        self.protocol('WM_DELETE_WINDOW', self.closeRoom)
-        self.__usrName = mn
+        self.protocol('WM_DELETE_WINDOW', self.close_room)
+        self.__user_name = user_name
 
-        self.title(u"与" + fn + u"私聊")
-        self.__receiverName = fn
+        self.title(u"与" + receiver_name + u"私聊")
+        self.__receive_name = receiver_name
 
         self.configureUI()
         self.__client = client
-        self.__mainFrm = mfm
+        self.__main_frame = mainFrm
 
-    def closeRoom(self):
+    def close_room(self):
         # TODO: 再次进入房间？？？
-        self.__mainFrm.close_private_chat_room(self.__receiverName)
+        # self.__main_frame.close_private_chat_room(self.__receive_name)
         self.withdraw()
 
     def configureUI(self):
@@ -260,43 +252,45 @@ class PrivateRoom(Toplevel):
         self.geometry("400x500+520+500")
         self.resizable(width=True, height=True)
 
-        self.frmTop = Frame(self, width=380, height=250)
-        self.frmMid = Frame(self, width=380, height=150)
-        self.frmBtm = Frame(self, width=380, height=30)
-        self.frmBtm['bg'] = bgColor
+        self.frm_top = Frame(self, width=380, height=250)
+        self.frm_mid = Frame(self, width=380, height=150)
+        self.frm_btm = Frame(self, width=380, height=30)
+        self.frm_btm['bg'] = bgColor
 
-        self.text_label_msgDisplay = Label(self, justify=LEFT, text=u"""消息列表""")
-        self.text_label_usrName = Label(self, justify=LEFT, text=self.__usrName)
+        self.label_msg_list = Label(self, justify=LEFT, text=u"""消息列表""")
+        self.label_user_name = Label(self, justify=LEFT, text=self.__user_name)
 
-        self.msgList = ScrolledText(self.frmTop, borderwidth=1, highlightthickness=0, relief='flat', bg='#fffff0')
-        self.msgList.tag_config('userColor', foreground='red')
-        self.msgList.place(x=0, y=0, width=380, height=250)
+        self.text_msg_list = ScrolledText(self.frm_top, borderwidth=1,
+                                          highlightthickness=0, relief='flat',
+                                          bg='#fffff0', state=DISABLED)
+        self.text_msg_list.tag_config('userColor', foreground='red')
+        self.text_msg_list.place(x=0, y=0, width=380, height=250)
 
-        self.msg = ScrolledText(self.frmMid)
-        self.msg.grid(row=0, column=0)
+        self.text_client_msg = ScrolledText(self.frm_mid)
+        self.text_client_msg.grid(row=0, column=0)
 
-        self.sendBtn = Button(self.frmBtm, text='发送消息', command=self.__sendMsgBtn)
-        self.sendBtn.grid()
+        self.button_send_msg = Button(self.frm_btm, text='发送消息', command=self.__send_msg_btn_cmd)
+        self.button_send_msg.grid()
 
-        self.text_label_msgDisplay.grid(row=0, column=0, padx=2, pady=2, sticky=W)
-        self.frmTop.grid(row=1, column=0, padx=2, pady=2)
-        self.text_label_usrName.grid(row=2, column=0, padx=2, pady=2, sticky=W)
-        self.frmMid.grid(row=3, column=0, padx=2, pady=2, )
-        self.frmBtm.grid(row=4, column=0, padx=2, pady=2, )
+        self.label_msg_list.grid(row=0, column=0, padx=2, pady=2, sticky=W)
+        self.frm_top.grid(row=1, column=0, padx=2, pady=2)
+        self.label_user_name.grid(row=2, column=0, padx=2, pady=2, sticky=W)
+        self.frm_mid.grid(row=3, column=0, padx=2, pady=2, )
+        self.frm_btm.grid(row=4, column=0, padx=2, pady=2, )
 
-        self.frmTop.grid_propagate(0)
-        self.frmMid.grid_propagate(0)
-        self.frmBtm.grid_propagate(0)
+        self.frm_top.grid_propagate(0)
+        self.frm_mid.grid_propagate(0)
+        self.frm_btm.grid_propagate(0)
 
-    def __sendMsgBtn(self):
-        usrMsg = self.msg.get('0.0', END)
-        self.__displayNewMsg(self.__usrName, usrMsg, 'userColor')
-        self.msg.delete('0.0', END)
-        data = package_private_chat_msg(self.__usrName, self.__receiverName, usrMsg)
-        self.__client.appendToMsgSendingQueue(data)
+    def __send_msg_btn_cmd(self):
+        usr_msg = self.text_client_msg.get('0.0', END)
+        self.display_new_msg(self.__user_name, usr_msg, 'userColor')
+        self.text_client_msg.delete('0.0', END)
+        data = package_private_chat_msg(self.__user_name, self.__receive_name, usr_msg)
+        self.__client.append_to_msg_sending_queue(data)
 
-    def __displayNewMsg(self, usrname, msg, config=''):
-        self.msgList['state'] = 'normal'
-        msgTime = time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
-        self.msgList.insert(END, usrname + ': ' + msgTime + msg, config)
-        self.msgList['state'] = 'disabled'
+    def display_new_msg(self, usrname, msg, config=''):
+        self.text_msg_list['state'] = 'normal'
+        msg_time = time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
+        self.text_msg_list.insert(END, usrname + ': ' + msg_time + msg, config)
+        self.text_msg_list['state'] = 'disabled'
