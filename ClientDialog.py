@@ -74,12 +74,18 @@ class LoginWindow(Toplevel):
         self.__client.append_to_msg_sending_queue(jstr)
 
         # wait for system login msg replied from server
+        attempt = 0
+
         start_time = time.time()
         while 1:
-            if time.time() - start_time > 120:
+            if time.time() - start_time > 10:
                 self.log_label_info['text'] = "Failed to login, please try again"
                 self.log_button_enter['state'] = 'normal'
-                return False
+                if attempt < 3:
+                    attempt += 1
+                    self.__client.append_to_msg_sending_queue(jstr)
+                else:
+                    return False
 
             sys_msg = self.__client.pop_sys_msg_from_queue()
 
@@ -91,7 +97,8 @@ class LoginWindow(Toplevel):
             else:
                 self.__client.append_sys_msg(sys_msg)
 
-        print "login response:", sys_msg
+        jstr = package_sys_msg('SysLoginConfirmed', self.__user_name)
+        self.__client.append_to_msg_sending_queue(jstr)
 
         if sys_msg is not None:
             if sys_msg.values()[0] == 'Successful login':
@@ -341,6 +348,15 @@ class Dialog(Tk):
                     self.__room_list[room_name].show_room()
                 elif msg == 'Room Not Exists':
                     pass
+
+            if msg_id == 'SysExitRoomAck':
+                room_name = msg_text.keys()[0]
+                msg = msg_text.values()[0]
+                if msg == "Exit Room":
+                    self.__room_list[room_name].destroy_room()
+                    self.__room_list.__delitem__(room_name)
+                else:
+                    print msg
 
             if msg_id == 'SysRoomListAck':
                 self.__enter_room_window.update_room_list(msg_text)

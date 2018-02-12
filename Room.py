@@ -65,7 +65,7 @@ class EnterRoomGUI(Toplevel):
     __main_frame = None
     __room_list = []
 
-    _room_name = None
+    __room_name = None
     __room = None
 
     def __init__(self, client, username, mfm):
@@ -111,12 +111,12 @@ class EnterRoomGUI(Toplevel):
 
         sel = self.listbox_room.curselection()
         if sel.__len__() > 0:
-            self._room_name = self.listbox_room.get(sel)
+            self.__room_name = self.listbox_room.get(sel)
             key = 'SysEnterRoomRequest'
-            value = {'roomName': self._room_name}
+            value = {'roomName': self.__room_name}
             msg = package_sys_msg(key, value)
             self.__client.append_to_msg_sending_queue(msg)
-            self.__room = Room(self.__client, self._room_name, self.__main_frame, self)
+            self.__room = Room(self.__client, self.__room_name, self.__main_frame, self)
         else:
             tkMessageBox.showinfo("Note", "Please select a room")
 
@@ -139,6 +139,8 @@ class Room(Toplevel):
     __main_frame = None
     __top_frame = None
 
+    __exit_room = False
+
     def __init__(self, client, room_name, main_frame, top_frame):
         Toplevel.__init__(self)
 
@@ -158,6 +160,7 @@ class Room(Toplevel):
         self.__main_frame.add_new_room(self.__room_name, self)
 
         self.withdraw()
+        # self.query_room_user_name()
         self.mainloop()
 
     def show_room(self):
@@ -172,13 +175,15 @@ class Room(Toplevel):
         # main window
         bg_color = '#208090'
         self['bg'] = bg_color
-        self.geometry("400x500+520+500")
+        self.geometry("580x500+520+500")
         self.resizable(width=True, height=True)
 
         self.frm_top = Frame(self, width=380, height=250)
         self.frm_mid = Frame(self, width=380, height=150)
         self.frm_btm = Frame(self, width=380, height=30)
+        self.frm_right = Frame(self, width=180, height=430)
         self.frm_btm['bg'] = bg_color
+        self.frm_right['bg'] = bg_color
 
         self.label_msg_list = Label(self, justify=LEFT, text=u"""消息列表""")
         self.label_user_name = Label(self, justify=LEFT, text=self.__user_name)
@@ -194,17 +199,47 @@ class Room(Toplevel):
         self.button_send_msg = Button(self.frm_btm, text='发送消息', command=self.__send_msg_btn_cmd)
         self.button_send_msg.grid()
 
+        self.button_exit_room = Button(self.frm_right, text='退出房间', command=self.__exit_room_btn_cmd)
+
+        self.label_other_users = Label(self.frm_right, justify=LEFT, text=u"""房间其他用户""")
+        self.user_list_str = StringVar()
+        self.listbox_user_list = Listbox(self.frm_right, borderwidth=1, highlightthickness=0, relief='flat',
+                                         bg='#ededed',
+                                         listvariable=self.user_list_str)
+        self.button_exit_room.place(x=20, y=20, width=130, height=30)
+        self.label_other_users.place(x=20, y=80, width=130, height=30)
+        self.listbox_user_list.place(x=20, y=130, width=130, height=250)
+
         self.label_msg_list.grid(row=0, column=0, padx=2, pady=2, sticky=W)
         self.frm_top.grid(row=1, column=0, padx=2, pady=2)
         self.label_user_name.grid(row=2, column=0, padx=2, pady=2, sticky=W)
         self.frm_mid.grid(row=3, column=0, padx=2, pady=2, )
         self.frm_btm.grid(row=4, column=0, padx=2, pady=2, )
+        self.frm_right.grid(row=0, column=1, rowspan=5, padx=2, pady=2, )
 
         self.frm_top.grid_propagate(0)
         self.frm_mid.grid_propagate(0)
         self.frm_btm.grid_propagate(0)
+        self.frm_right.grid_propagate(0)
+
+    def destroy_room(self):
+        self.destroy()
+
+    def query_room_user_name(self):
+        msg = {'roomName': self.__room_name}
+        data = package_sys_msg("SysRoomUserNameRequest", msg)
+        self.__client.append_to_msg_sending_queue(data)
+
+    def __exit_room_btn_cmd(self):
+        self.__exit_room = True
+        msg = {'roomName': self.__room_name}
+        data = package_sys_msg("SysExitRoomRequest", msg)
+        self.__client.append_to_msg_sending_queue(data)
 
     def __send_msg_btn_cmd(self):
+        if self.__exit_room:
+            return
+
         usr_msg = self.text_client_msg.get('0.0', END)
         self.display_new_msg(self.__user_name, usr_msg, 'userColor')
         self.text_client_msg.delete('0.0', END)

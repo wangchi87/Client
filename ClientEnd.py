@@ -6,7 +6,7 @@ import time
 
 from SocketWrapper import *
 
-heat_beat_interval = 1
+heat_beat_interval = 250
 
 
 class Client:
@@ -113,7 +113,7 @@ class Client:
         # process msg in data buffer
         # and distribute msg to chat msg list or sys msg list
         while self.__is_socket_alive:
-            while len(self.__data_buffer) > 0:
+            if len(self.__data_buffer) > 0:
 
                 msg_start_index = self.__data_buffer.find('msgHeader')
 
