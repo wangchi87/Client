@@ -1,29 +1,29 @@
 import json
 
-def packageMsg(key, msg):
-    rtnStr = {}
-    rtnStr[key] = msg
-    return json.dumps(rtnStr)
+def package_msg(key, msg):
+    packed_msg = {}
+    packed_msg[key] = msg
+    return json.dumps(packed_msg)
 
-def packageSysMsg(key, msg):
-    rtnStr = {}
-    rtnStr['SysMsg'] = {key: msg}
-    return json.dumps(rtnStr)
-
-
-def packagePublicChatMsg(sender, msg):
-    rtnStr = {}
-    rtnStr['ChatMsg'] = {'toAll': [sender, msg]}
-    return json.dumps(rtnStr)
+def package_sys_msg(key, msg):
+    packed_msg = {}
+    packed_msg['SysMsg'] = {key: msg}
+    return json.dumps(packed_msg)
 
 
-def packagePrivateChatMsg(sender, receiver, msg):
-    rtnStr = {}
-    rtnStr['ChatMsg'] = {'toClient': [sender, receiver, msg]}
-    return json.dumps(rtnStr)
+def package_public_chat_msg(sender, msg):
+    packed_msg = {}
+    packed_msg['ChatMsg'] = {'toAll': [sender, msg]}
+    return json.dumps(packed_msg)
 
 
-def packageRoomChatMsg(sender, roomName, msg):
-    rtnStr = {}
-    rtnStr['ChatMsg'] = {'toRoom': [sender, roomName, msg]}
-    return json.dumps(rtnStr)
+def package_private_chat_msg(sender, receiver, msg):
+    packed_msg = {}
+    packed_msg['ChatMsg'] = {'toClient': [sender, receiver, msg]}
+    return json.dumps(packed_msg)
+
+
+def package_room_chat_msg(sender, room_name, msg):
+    packed_msg = {}
+    packed_msg['ChatMsg'] = {'toRoom': [sender, room_name, msg]}
+    return json.dumps(packed_msg)

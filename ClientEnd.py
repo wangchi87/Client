@@ -92,7 +92,7 @@ class Client:
                 recvedData = self.clientSock.recv(self.RECV_BUFFER)
             except socket.error as err:
                 print "failed to receive data", err
-                self.closeClient()
+                self.close_client()
                 return
             else:
                 if (not recvedData):
@@ -166,7 +166,7 @@ class Client:
                     self.__sysMsgRecved.append(v)
 
 
-    def closeClient(self):
+    def close_client(self):
         if self.__isSocketAlive:
             print 'close socket'
             self.__safeSocketSend("CLIENT_SHUTDOWN")
@@ -189,7 +189,7 @@ class Client:
     def __safeSocketSend(self, msg):
         if not socketSend(self.clientSock, msg):
             self.__isSocketAlive = False
-            self.closeClient()
+            self.close_client()
 
 if __name__ == "__main__":
 

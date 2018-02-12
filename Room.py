@@ -53,7 +53,7 @@ class CreateRoomGUI(Toplevel):
         roomName = self.textRoomName.get()
         key = 'SysCreateRoomRequest'
         value = {'admin': self.__usrName, 'roomName': roomName}
-        msg = packageSysMsg(key, value)
+        msg = package_sys_msg(key, value)
         self.__client.appendToMsgSendingQueue(msg)
         print msg
 
@@ -120,7 +120,7 @@ class EnterRoomGUI(Toplevel):
             self.__roomName = self.roomListBox.get(sel)
             key = 'SysEnterRoomRequest'
             value = {'roomName': self.__roomName}
-            msg = packageSysMsg(key, value)
+            msg = package_sys_msg(key, value)
             self.__client.appendToMsgSendingQueue(msg)
             self.__room = Room(self.__client, self.__roomName, self.__mainFrm, self)
         else:
@@ -129,7 +129,7 @@ class EnterRoomGUI(Toplevel):
     def queryAllRooms(self):
         key = 'SysRoomListRequest'
         value = ''
-        msg = packageSysMsg(key, value)
+        msg = package_sys_msg(key, value)
         self.__client.appendToMsgSendingQueue(msg)
 
     def updateRoomList(self, list):
@@ -154,7 +154,7 @@ class Room(Toplevel):
         self['background'] = 'grey'
 
         self.protocol('WM_DELETE_WINDOW', self.closeRoom)
-        self.__usrName = mfm.getUsrName()
+        self.__usrName = mfm.get_user_name()
 
         self.title("Room Name:" + roomName)
         self.__roomName = roomName
@@ -164,7 +164,7 @@ class Room(Toplevel):
 
         self.__topFrm = topFrm
         self.__mainFrm = mfm
-        self.__mainFrm.addNewRoom(self.__roomName, self)
+        self.__mainFrm.add_new_room(self.__roomName, self)
 
         self.withdraw()
         self.mainloop()
@@ -216,7 +216,7 @@ class Room(Toplevel):
         usrMsg = self.msg.get('0.0', END)
         self.displayNewMsg(self.__usrName, usrMsg, 'userColor')
         self.msg.delete('0.0', END)
-        data = packageRoomChatMsg(self.__usrName, self.__roomName, usrMsg)
+        data = package_room_chat_msg(self.__usrName, self.__roomName, usrMsg)
         self.__client.appendToMsgSendingQueue(data)
 
     def displayNewMsg(self, usrname, msg, config=''):
@@ -250,7 +250,7 @@ class PrivateRoom(Toplevel):
 
     def closeRoom(self):
         # TODO: 再次进入房间？？？
-        self.__mainFrm.closePrivateChatRoom(self.__receiverName)
+        self.__mainFrm.close_private_chat_room(self.__receiverName)
         self.withdraw()
 
     def configureUI(self):
@@ -292,7 +292,7 @@ class PrivateRoom(Toplevel):
         usrMsg = self.msg.get('0.0', END)
         self.__displayNewMsg(self.__usrName, usrMsg, 'userColor')
         self.msg.delete('0.0', END)
-        data = packagePrivateChatMsg(self.__usrName, self.__receiverName, usrMsg)
+        data = package_private_chat_msg(self.__usrName, self.__receiverName, usrMsg)
         self.__client.appendToMsgSendingQueue(data)
 
     def __displayNewMsg(self, usrname, msg, config=''):
