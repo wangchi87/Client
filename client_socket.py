@@ -7,7 +7,7 @@ import socket_config
 
 from socket_wrapper import *
 
-heat_beat_interval = 2
+heat_beat_interval = 20
 
 
 class Client:
