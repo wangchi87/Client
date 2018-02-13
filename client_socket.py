@@ -3,14 +3,14 @@
 import json
 import threading
 import time
+import socket_config
 
-from SocketWrapper import *
+from socket_wrapper import *
 
-heat_beat_interval = 250
+heat_beat_interval = 2
 
 
 class Client:
-
     clientSock = None
     port = 12354
     host = None
@@ -34,7 +34,8 @@ class Client:
     __msg_header_size = 13
 
     def __init__(self):
-        self.host = '192.168.1.6'#socket.gethostname()
+        self.host = socket_config.host_name
+        self.port = socket_config.port
         self.clientSock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.__data_buf_Lock = threading.Lock()
 
@@ -102,7 +103,6 @@ class Client:
                     print "receive empty string, program terminated"
                     break
 
-                print recved_data
                 while 1:
                     if self.__data_buf_Lock.acquire():
                         self.__data_buffer += recved_data
@@ -127,7 +127,7 @@ class Client:
                 msg_body_end_index = msg_header_end_index + msg_body_size
                 msg_body = self.__data_buffer[msg_header_end_index: msg_body_end_index]
 
-                # print msg_body
+                print "recv msg:  ", msg_body
 
                 self.__parse_received_data(msg_body)
 
@@ -197,6 +197,4 @@ class Client:
 
 
 if __name__ == "__main__":
-
     client = Client()
-

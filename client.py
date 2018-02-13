@@ -2,8 +2,8 @@
 
 import signal
 
-from ClientEnd import *
-from Room import *
+from client_socket import *
+from chat_room import *
 
 
 # login window
@@ -12,16 +12,16 @@ class LoginWindow(Toplevel):
     this class is used to create a login window
     '''
 
-    __client = None
+    __client_sock = None
     mainFrm = None
     __user_name = None
 
-    def __init__(self, mainFrm, client):
+    def __init__(self, main_frm, client_sock):
         Toplevel.__init__(self)
-        self.mainFrm = mainFrm
+        self.mainFrm = main_frm
         self.configure_GUI()
 
-        self.__client = client
+        self.__client_sock = client_sock
         self.protocol('WM_DELETE_WINDOW', self.close_dialog)
 
     def configure_GUI(self):
@@ -71,7 +71,7 @@ class LoginWindow(Toplevel):
         password = self.log_entry_password.get()
 
         jstr = package_sys_msg('SysLoginRequest', {self.__user_name: password})
-        self.__client.append_to_msg_sending_queue(jstr)
+        self.__client_sock.append_to_msg_sending_queue(jstr)
 
         # wait for system login msg replied from server
         attempt = 0
@@ -83,11 +83,11 @@ class LoginWindow(Toplevel):
                 self.log_button_enter['state'] = 'normal'
                 if attempt < 3:
                     attempt += 1
-                    self.__client.append_to_msg_sending_queue(jstr)
+                    self.__client_sock.append_to_msg_sending_queue(jstr)
                 else:
                     return False
 
-            sys_msg = self.__client.pop_sys_msg_from_queue()
+            sys_msg = self.__client_sock.pop_sys_msg_from_queue()
 
             # sys_msg is something like {"SysLoginAck": "Successful login"}
             if sys_msg is None:
@@ -95,13 +95,12 @@ class LoginWindow(Toplevel):
             elif sys_msg.keys()[0] == 'SysLoginAck':
                 break
             else:
-                self.__client.append_sys_msg(sys_msg)
-
-        jstr = package_sys_msg('SysLoginConfirmed', self.__user_name)
-        self.__client.append_to_msg_sending_queue(jstr)
+                self.__client_sock.append_sys_msg(sys_msg)
 
         if sys_msg is not None:
             if sys_msg.values()[0] == 'Successful login':
+                jstr = package_sys_msg('SysLoginConfirmed', self.__user_name)
+                self.__client_sock.append_to_msg_sending_queue(jstr)
                 self.mainFrm.user_logged_in()
                 return True
             else:
@@ -128,7 +127,7 @@ class LoginWindow(Toplevel):
         password = self.log_entry_password.get()
 
         jstr = package_sys_msg('SysRegisterRequest', {self.__user_name: password})
-        self.__client.append_to_msg_sending_queue(jstr)
+        self.__client_sock.append_to_msg_sending_queue(jstr)
 
         # wait for system registration reply msg from server
         start_time = time.time()
@@ -138,7 +137,7 @@ class LoginWindow(Toplevel):
                 self.log_button_register['state'] = 'normal'
                 return
 
-            sys_msg = self.__client.pop_sys_msg_from_queue()
+            sys_msg = self.__client_sock.pop_sys_msg_from_queue()
 
             # sys_msg is something like {"SysRegisterAck": "Successful registration"}
             if sys_msg == None:
@@ -146,7 +145,7 @@ class LoginWindow(Toplevel):
             elif sys_msg.keys()[0] == 'SysRegisterAck':
                 break
             else:
-                self.__client.append_sys_msg(sys_msg)
+                self.__client_sock.append_sys_msg(sys_msg)
                 time.sleep(0.2)
 
         if sys_msg is not None:
@@ -160,18 +159,16 @@ class LoginWindow(Toplevel):
             return False
 
     def close_dialog(self):
-        self.__client.close_client()
+        self.__client_sock.close_client()
         self.mainFrm.destroy()
 
 
 class Dialog(Tk):
     __user_name = 'username'
     __login_window = None
-    __client = None
+    __client_sock = None
 
     __logged_in = False
-    # manage private rooms, KEY is username, value is the handle of room object
-    __private_room_list = {}
 
     # roomLists maintain the rooms the client are in or created
     # key is room name, value is the handle of room object
@@ -192,8 +189,8 @@ class Dialog(Tk):
 
         self.after(100, self.__process_received_msg)
 
-        if self.__client.is_socket_alive():
-            self.__login_window = LoginWindow(self, self.__client)
+        if self.__client_sock.is_socket_alive():
+            self.__login_window = LoginWindow(self, self.__client_sock)
         else:
             print 'failed to connect server'
             sys.exit(1)
@@ -213,27 +210,23 @@ class Dialog(Tk):
         return self.__user_name
 
     def __connect(self):
-        self.__client = Client()
-        self.__client.connect_to_server()
+        self.__client_sock = Client()
+        self.__client_sock.connect_to_server()
 
     def set_user_name(self, user_name):
         self.__user_name = user_name
         self.label_username['text'] = user_name
-        print self.__user_name
 
     def __send_msg_btn_cmd(self):
-        usrMsg = self.text_user_msg.get('0.0', END)
-        self.__display_new_msg(self.__user_name, usrMsg, 'userColor')
+        usr_msg = self.text_user_msg.get('0.0', END)
+        self.__display_new_msg(self.__user_name, usr_msg, 'userColor')
         self.text_user_msg.delete('0.0', END)
-        data = package_public_chat_msg(self.__user_name, usrMsg)
-        self.__client.append_to_msg_sending_queue(data)
+        data = package_public_chat_msg(self.__user_name, usr_msg)
+        self.__client_sock.append_to_msg_sending_queue(data)
 
     def close_dialog(self):
-        self.__client.close_client()
+        self.__client_sock.close_client()
         self.destroy()
-
-        for pr in self.__private_room_list.values():
-            pr.close_room()
 
     def __process_received_msg(self):
         self.__process_chat_msg()
@@ -241,8 +234,8 @@ class Dialog(Tk):
         self.after(100, self.__process_received_msg)
 
     def __process_chat_msg(self):
-        if self.__client.is_socket_alive() and self.has_already_logged_in():
-            msg_dict = self.__client.pop_chat_msg_from_queue()
+        if self.__client_sock.is_socket_alive() and self.has_already_logged_in():
+            msg_dict = self.__client_sock.pop_chat_msg_from_queue()
             if msg_dict is not None:
                 # print msg_dict
                 for msg_id, msg_text in msg_dict.items():
@@ -257,22 +250,8 @@ class Dialog(Tk):
                     elif msg_id == 'toClient' and msg_text[1] == self.__user_name:
                         # msg_text is like [sender, receiver, msg]
                         sender = msg_text[0]
-                        receiver = msg_text[1]
                         prvt_msg = msg_text[2]
-
-                        sender = msg_text[0]
-                        prvt_msg = msg_text[2]
-                        self.__display_new_msg(sender + " (private msg)", prvt_msg)
-
-                        # if self.__private_room_list.has_key(sender):
-                        #     pr_window = self.__private_room_list[sender]
-                        #     pr_window.display_new_msg(sender + u" (私聊消息)", prvt_msg, "privateChatColor")
-                        #     pr_window.deiconify()
-                        # else:
-                        #     pr_window = PrivateRoom(receiver, sender, self.__client, self)
-                        #     pr_window.display_new_msg(sender + u" (私聊消息)", prvt_msg, "privateChatColor")
-                        #     pr_window.mainloop()
-                        #     self.__private_room_list[sender] = pr_window
+                        self.__display_new_msg(sender + u" (私聊消息)", prvt_msg, "privateChatColor")
 
                     elif msg_id == 'toRoom':
                         sender = msg_text[0]
@@ -292,11 +271,11 @@ class Dialog(Tk):
     def query_all_online_clients(self):
         key = "SysAllOnlineClientsRequest"
         data = package_sys_msg(key, '')
-        self.__client.append_to_msg_sending_queue(data)
+        self.__client_sock.append_to_msg_sending_queue(data)
 
     def __process_sys_msg(self):
-        if self.__client.is_socket_alive() and self.has_already_logged_in():
-            sys_msg = self.__client.pop_sys_msg_from_queue()
+        if self.__client_sock.is_socket_alive() and self.has_already_logged_in():
+            sys_msg = self.__client_sock.pop_sys_msg_from_queue()
             if sys_msg:
                 self.__analyse_sys_msg(sys_msg)
 
@@ -362,7 +341,7 @@ class Dialog(Tk):
                 self.__enter_room_window.update_room_list(msg_text)
 
             if msg_id == 'SERVER_SHUTDOWN':
-                self.__client.close_client()
+                self.__client_sock.close_client()
                 self.__display_new_msg('SysMsg', "Server is down, you can close the program, and come back later")
 
     def __set_usr_online_time(self, time_str):
@@ -380,24 +359,13 @@ class Dialog(Tk):
             self.__display_new_msg(self.__user_name, usr_msg, 'privateChatColor')
             self.text_user_msg.delete('0.0', END)
             data = package_private_chat_msg(self.__user_name, receiver_name, usr_msg)
-            self.__client.append_to_msg_sending_queue(data)
-            # if not self.__private_room_list.has_key(receiver_name):
-            #     pr = PrivateRoom(self.__user_name, receiver_name, self.__client, self)
-            #     pr.mainloop()
-            #     self.__private_room_list[receiver_name] = pr
-            # else:
-            #     pr = self.__private_room_list[receiver_name]
-            #     pr.deiconify()
+            self.__client_sock.append_to_msg_sending_queue(data)
         else:
             tkMessageBox.showinfo("Note", "Please select a user")
 
-    def close_private_chat_room(self, receiver_name):
-        if self.__private_room_list.has_key(receiver_name):
-            self.__private_room_list.__delitem__(receiver_name)
-
     def __create_room_btn_cmd(self):
         if not self.__create_room_window:
-            self.__create_room_window = CreateRoomGUI(self.__client, self.__user_name, self)
+            self.__create_room_window = CreateRoomGUI(self.__client_sock, self.__user_name, self)
             self.__create_room_window.mainloop()
         else:
             self.__create_room_window.deiconify()
@@ -406,7 +374,7 @@ class Dialog(Tk):
         self.query_all_rooms()
 
         if not self.__enter_room_window:
-            self.__enter_room_window = EnterRoomGUI(self.__client, self.__user_name, self)
+            self.__enter_room_window = EnterRoomGUI(self.__client_sock, self.__user_name, self)
             self.__enter_room_window.mainloop()
         else:
             self.__enter_room_window.deiconify()
@@ -415,11 +383,11 @@ class Dialog(Tk):
         key = 'SysRoomListRequest'
         value = ''
         msg = package_sys_msg(key, value)
-        self.__client.append_to_msg_sending_queue(msg)
+        self.__client_sock.append_to_msg_sending_queue(msg)
 
-    def add_new_room(self, roomName, room):
-        if not self.__room_list.has_key(roomName):
-            self.__room_list[roomName] = room
+    def add_new_room(self, room_name, room):
+        if not self.__room_list.has_key(room_name):
+            self.__room_list[room_name] = room
 
     def configure_GUI(self):
         # main window
