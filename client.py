@@ -245,7 +245,7 @@ class Dialog(Tk):
                         # msg_text is like [sender, msg]
                         usr = msg_text[0]
                         usr_msg = msg_text[1]
-                        self.__display_new_msg(usr, usr_msg)
+                        self.__display_new_msg(usr, usr_msg, 'userColor')
 
                     elif msg_id == 'toClient' and msg_text[1] == self.__user_name:
                         # msg_text is like [sender, receiver, msg]
