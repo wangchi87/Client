@@ -251,7 +251,7 @@ class Dialog(Tk):
                         # msg_text is like [sender, receiver, msg]
                         sender = msg_text[0]
                         prvt_msg = msg_text[2]
-                        self.__display_new_msg(sender + u" (私聊消息)", prvt_msg, "privateChatColor")
+                        self.__display_new_msg(sender + u" 发来的私信 ", prvt_msg, "privateChatColor")
 
                     elif msg_id == 'toRoom':
                         sender = msg_text[0]
@@ -265,7 +265,7 @@ class Dialog(Tk):
         # append msg to list component
         self.text_msg_list['state'] = 'normal'
         msg_time = time.strftime(" %Y-%m-%d %H:%M:%S", time.localtime()) + '\n'
-        self.text_msg_list.insert(END, user_name + ': ' + msg_time + msg, config)
+        self.text_msg_list.insert(END, user_name + ': ' + msg_time + msg + '\n', config)
         self.text_msg_list['state'] = 'disabled'
 
     def query_all_online_clients(self):
@@ -356,7 +356,7 @@ class Dialog(Tk):
             receiver_name = self.listbox_user_list.get(sel)
 
             usr_msg = self.text_user_msg.get('0.0', END)
-            self.__display_new_msg(self.__user_name, usr_msg, 'privateChatColor')
+            self.__display_new_msg(u'发给 ' + receiver_name + u' 的私信', usr_msg, 'privateChatColor')
             self.text_user_msg.delete('0.0', END)
             data = package_private_chat_msg(self.__user_name, receiver_name, usr_msg)
             self.__client_sock.append_to_msg_sending_queue(data)
